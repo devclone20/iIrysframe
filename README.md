@@ -10,6 +10,8 @@
 
 The loop: **define the soul → generate the art → seal art + `ai_soul` metadata on Irys → tokenURI (mint link) → `ICloneAgent.mint(to, tokenURI)` on Base.**
 
+![iIrys Frame — overview](docs/diagrams/01-overview.svg)
+
 | | what | pays with | path |
 |---|---|---|---|
 | **`web/`** | **Primary.** Wallet-login app: Soul · Engine · iIrys · Vault · Swap · Contracts. | your wallet, Base ETH | [`web/`](web) |
@@ -41,6 +43,30 @@ Six tabs, left to right:
 - **Contracts** — three ready-to-deploy Base minting contracts (royalty / standard / open edition) with copy-paste Solidity.
 
 Uploads pay from your wallet in Base ETH; **anything under 100 KiB is free**.
+
+## How it works — step by step
+
+Each tab, in order, with the detailed flow.
+
+### Soul
+
+![Soul — configure the agent](docs/diagrams/02-soul.svg)
+
+### Engine
+
+![Engine — generative collection](docs/diagrams/03-engine.svg)
+
+### iIrys — seal to Irys
+
+![iIrys — seal to Irys](docs/diagrams/04-seal.svg)
+
+### Vault
+
+![Vault — your sealed inventory](docs/diagrams/05-vault.svg)
+
+### Contracts
+
+![Contracts — deploy on Base](docs/diagrams/06-contracts.svg)
 
 ## Neural Souls — the agent identity
 
