@@ -29,6 +29,13 @@ function bool(v: string | undefined, fallback = false): boolean {
   return ["1", "true", "yes", "on"].includes(v.toLowerCase());
 }
 
+/** Parse a non-negative number from env; falls back when missing/invalid.
+ *  Unlike `parseFloat(...) || fallback`, a legitimate `0` is preserved. */
+function num(v: string | undefined, fallback: number): number {
+  const n = Number.parseFloat(v ?? "");
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
 export const NETWORKS: Record<NetworkId, NetworkConfig> = {
   mainnet: {
     id: "mainnet",
@@ -86,7 +93,7 @@ export const config = {
     return (env.EVM_RPC_URL ?? "").trim() || RPC_DEFAULTS[network];
   },
 
-  fundMaxEth: Number.parseFloat(env.FUND_MAX_ETH ?? "0.1") || 0.1,
+  fundMaxEth: num(env.FUND_MAX_ETH, 0.1),
   vaultToken: (env.VAULT_TOKEN ?? "").trim() || null,
 
   port: Number.parseInt(env.PORT ?? "1717", 10) || 1717,

@@ -109,7 +109,13 @@ function WalletPanel({ onClose }: { onClose: () => void }) {
     const usd = usdOf(eth, store.ethUsd);
     const ok = await confirmDialog(
       "Fund Irys account",
-      `Transfer <strong>${eth} ETH${usd ? ` (≈ ${usd})` : ""}</strong> on Base into your Irys storage credit. This is an on-chain transaction from your wallet.`,
+      <>
+        Transfer{" "}
+        <strong>
+          {eth} ETH{usd ? ` (≈ ${usd})` : ""}
+        </strong>{" "}
+        on Base into your Irys storage credit. This is an on-chain transaction from your wallet.
+      </>,
       "Fund",
     );
     if (!ok) return;
@@ -133,7 +139,13 @@ function WalletPanel({ onClose }: { onClose: () => void }) {
     const usd = usdOf(store.nodeEth, store.ethUsd);
     const ok = await confirmDialog(
       "Withdraw Irys credit",
-      `Withdraw your unused Irys credit (<strong>${fmtEth(store.nodeEth)} ETH${usd ? ` ≈ ${usd}` : ""}</strong>) back to your wallet on Base.`,
+      <>
+        Withdraw your unused Irys credit (
+        <strong>
+          {fmtEth(store.nodeEth)} ETH{usd ? ` ≈ ${usd}` : ""}
+        </strong>
+        ) back to your wallet on Base.
+      </>,
       "Withdraw all",
     );
     if (!ok) return;

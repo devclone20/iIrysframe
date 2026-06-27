@@ -23,11 +23,10 @@ data/
 *.mnemonic
 secrets.*
 
-# ── Foundry (contracts) — build artifacts & vendored deps ────────────────
+# ── Foundry (contracts) — build artifacts only (lib/ tracked via submodules)
 contracts/out/
 contracts/cache/
 contracts/broadcast/
-contracts/lib/
 contracts/foundry.lock
 
 # ── python (v1 tooling, if any) ──────────────────────────────────────────
@@ -35,6 +34,9 @@ contracts/foundry.lock
 venv*/
 __pycache__/
 *.pyc
+
+# ── training (generated in CI, uploaded as artifact) ─────────────────────
+training_reports/
 
 # ── os / editor ──────────────────────────────────────────────────────────
 .DS_Store
