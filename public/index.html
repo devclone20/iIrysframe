@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>iIrys Frame — Permanent image bank · Irys</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="aurora" aria-hidden="true"></div>
+
+  <!-- ── Top bar ─────────────────────────────────────────────────────────── -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand__mark">
+        <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
+          <path d="M16 5 L26 10.5 V21.5 L16 27 L6 21.5 V10.5 Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+          <circle cx="16" cy="16" r="3.4" fill="none" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M16 12.6 V9.2 M16 19.4 V22.8 M12.6 16 H9.2 M19.4 16 H22.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <div class="brand__text">
+        <strong>iIrys Frame</strong>
+        <span>Permanent image bank · Irys</span>
+      </div>
+    </div>
+
+    <div class="net-toggle" id="netToggle" role="tablist" aria-label="Network">
+      <button class="net-toggle__btn" data-net="devnet" role="tab">Devnet</button>
+      <button class="net-toggle__btn" data-net="mainnet" role="tab">Mainnet</button>
+      <span class="net-toggle__thumb" aria-hidden="true"></span>
+    </div>
+
+    <div class="topbar__right">
+      <input id="tokenInput" class="token-input" type="password" placeholder="x-vault-token" hidden />
+      <div class="wallet" id="wallet">
+        <span class="wallet__dot" id="walletDot"></span>
+        <div class="wallet__meta">
+          <span class="wallet__addr" id="walletAddr">read-only</span>
+          <span class="wallet__bal" id="walletBal">—</span>
+        </div>
+      </div>
+      <button class="btn btn--ghost" id="fundBtn" title="Fund the Irys node">Fund</button>
+    </div>
+  </header>
+
+  <!-- ── Stat rail ───────────────────────────────────────────────────────── -->
+  <section class="rail" id="rail">
+    <div class="stat">
+      <span class="stat__label">Balance</span>
+      <span class="stat__value" id="statBalance">—</span>
+      <span class="stat__sub" id="statBalanceSub">node credit</span>
+    </div>
+    <div class="stat">
+      <span class="stat__label">Sealed assets</span>
+      <span class="stat__value" id="statAssets">0</span>
+      <span class="stat__sub">in this vault</span>
+    </div>
+    <div class="stat">
+      <span class="stat__label">Stored</span>
+      <span class="stat__value" id="statSize">0 B</span>
+      <span class="stat__sub">permanent bytes</span>
+    </div>
+    <div class="stat">
+      <span class="stat__label">Network</span>
+      <span class="stat__value" id="statNet">Devnet</span>
+      <span class="stat__sub" id="statNetSub">~60-day retention</span>
+    </div>
+  </section>
+
+  <!-- ── Main ────────────────────────────────────────────────────────────── -->
+  <main class="grid">
+    <!-- Work column -->
+    <div class="col col--work">
+      <!-- Upload -->
+      <article class="panel">
+        <header class="panel__head">
+          <h2>Seal to the vault</h2>
+          <span class="panel__hint" id="freeHint">&lt;100 KiB free</span>
+        </header>
+
+        <label class="dropzone" id="dropzone">
+          <input type="file" id="fileInput" multiple accept="image/*,application/json,video/*,audio/*" hidden />
+          <span class="dropzone__icon">⤓</span>
+          <span class="dropzone__title">Drop art here</span>
+          <span class="dropzone__sub">or click to browse · images, json, media</span>
+        </label>
+
+        <div class="queue" id="queue"></div>
+
+        <div class="form">
+          <div class="field">
+            <label for="collectionInput">Collection</label>
+            <input id="collectionInput" type="text" placeholder="iCLONE Genesis" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="tierSelect">Rarity tier</label>
+            <select id="tierSelect">
+              <option value="">—</option>
+              <option value="rare">rare</option>
+              <option value="superrare">superrare</option>
+              <option value="iclone">iclone</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn btn--primary btn--block" id="sealBtn" disabled>Seal to Irys</button>
+      </article>
+
+      <!-- Metadata -->
+      <article class="panel">
+        <header class="panel__head">
+          <h2>Mint metadata</h2>
+          <span class="panel__hint">ERC-721 JSON</span>
+        </header>
+
+        <div class="field">
+          <label for="metaName">Name</label>
+          <input id="metaName" type="text" placeholder="iCLONE #001" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="metaImage">Image URL <em>(gateway)</em></label>
+          <input id="metaImage" type="text" placeholder="https://gateway.irys.xyz/…" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="metaDesc">Description</label>
+          <textarea id="metaDesc" rows="2" placeholder="An autonomous agent, sealed forever."></textarea>
+        </div>
+
+        <div class="attrs">
+          <div class="attrs__head">
+            <span>Attributes</span>
+            <button class="btn btn--mini" id="addAttr" type="button">+ trait</button>
+          </div>
+          <div id="attrRows"></div>
+        </div>
+
+        <button class="btn btn--block" id="metaBtn">Upload metadata</button>
+      </article>
+    </div>
+
+    <!-- Vault column -->
+    <div class="col col--vault">
+      <article class="panel panel--vault">
+        <header class="panel__head panel__head--vault">
+          <h2>The Vault</h2>
+          <div class="vault-tools">
+            <input id="search" class="search" type="search" placeholder="Search name, tx, collection…" />
+            <button class="btn btn--ghost btn--mini" id="syncBtn" title="Reconcile with the Irys index">⟳ Sync</button>
+          </div>
+        </header>
+
+        <div class="chips" id="chips"></div>
+
+        <div class="vault-grid" id="vaultGrid"></div>
+
+        <div class="empty" id="emptyState">
+          <div class="empty__glyph">◈</div>
+          <p>Your vault is empty.<br /><span>Seal your first piece of art to make it permanent.</span></p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <!-- ── Detail drawer ───────────────────────────────────────────────────── -->
+  <aside class="drawer" id="drawer" aria-hidden="true">
+    <div class="drawer__scrim" id="drawerScrim"></div>
+    <div class="drawer__panel" id="drawerPanel"></div>
+  </aside>
+
+  <!-- ── Fund modal ──────────────────────────────────────────────────────── -->
+  <div class="modal" id="fundModal" aria-hidden="true">
+    <div class="modal__scrim" data-close></div>
+    <div class="modal__card">
+      <h3>Fund the Irys node</h3>
+      <p class="modal__sub">Credit your upload balance. Capped by <code>FUND_MAX_ETH</code>.</p>
+      <div class="field">
+        <label for="fundAmount">Amount (ETH)</label>
+        <input id="fundAmount" type="number" step="0.001" min="0" placeholder="0.01" />
+      </div>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" data-close>Cancel</button>
+        <button class="btn btn--primary" id="fundConfirm">Fund</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" aria-live="polite"></div>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

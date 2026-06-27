@@ -1,0 +1,33 @@
+{
+  "name": "iirys-frame-web",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "description": "iIrys Frame — wallet-login NFT layer vault on Irys (Privy auth · paid in Base ETH).",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 4173",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@irys/web-upload": "^0.0.15",
+    "@irys/web-upload-ethereum": "^0.0.15",
+    "@irys/web-upload-ethereum-ethers-v6": "^0.0.6",
+    "@privy-io/react-auth": "^2.13.0",
+    "ethers": "^6.13.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^9.1.0",
+    "remark-gfm": "^4.0.1",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7",
+    "vite-plugin-node-polyfills": "^0.23.0"
+  }
+}

@@ -1,0 +1,46 @@
+# ── dependencies ─────────────────────────────────────────────────────────
+node_modules/
+**/node_modules/
+
+# ── build output ─────────────────────────────────────────────────────────
+dist/
+**/dist/
+.vite/
+**/.vite/
+
+# ── secrets & local state — NEVER commit ─────────────────────────────────
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+data/
+**/data/
+*.key
+*.pem
+*.keystore
+*.mnemonic
+secrets.*
+
+# ── Foundry (contracts) — build artifacts & vendored deps ────────────────
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+contracts/lib/
+contracts/foundry.lock
+
+# ── python (v1 tooling, if any) ──────────────────────────────────────────
+.venv/
+venv*/
+__pycache__/
+*.pyc
+
+# ── os / editor ──────────────────────────────────────────────────────────
+.DS_Store
+*.log
+npm-debug.log*
+.idea/
+.vscode/
+.claude/
+**/.claude/
