@@ -10,7 +10,7 @@
 
 The loop: **define the soul → generate the art → seal art + `ai_soul` metadata on Irys → tokenURI (mint link) → `ICloneAgent.mint(to, tokenURI)` on Base.**
 
-**Where it fits in the CLONE FRAME pipeline:** [LAYER FRAME](https://github.com/devclone20/ilayerframe) (build the art layers) → **iIrys Frame** (this repo — soul + metadata, seal on Irys) → [CLONE FRAME](https://github.com/devclone20/clone-frame) (mint the iNFT · Plaza marketplace).
+**Where it fits in the CLONE FRAME pipeline:** [LAYER FRAME](https://github.com/devclone20/ilayerframe) (build the art layers) → **iIrys Frame** (this repo — soul + metadata, seal on Irys) → [CLONE FRAME](https://github.com/devclone20/clone-frame) (mint the iNFT · Plaza marketplace). On the platform, the **Genesis Engine** consumes the tokenURI produced here and runs the rest as one guided flow: mint → agent creation (Virtuals CLI) → NFT ⇄ agent link.
 
 ![iIrys Frame — overview](docs/diagrams/01-overview.svg)
 
