@@ -200,7 +200,7 @@ export function Swap() {
         <p className="swap-foot">
           Routed by LI.FI across Base DEXs · you sign in your wallet ·{" "}
           <a href={`${BASE.explorer}`} target="_blank" rel="noopener noreferrer">
-            Basescan ↗
+            Basescan
           </a>
         </p>
         <p className="swap-foot swap-foot--dim">Balance: {fmtEth(store.baseEth)} ETH on Base</p>

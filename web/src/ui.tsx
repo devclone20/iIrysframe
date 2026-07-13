@@ -44,14 +44,14 @@ export function Toaster() {
 // ── Confirm dialog (promise-based, external store) ───────────────────────────
 interface ConfirmReq {
   title: string;
-  body: ReactNode;
+  body: string;
   ok: string;
   resolve: (v: boolean) => void;
 }
 let confirmReq: ConfirmReq | null = null;
 const confirmSubs = new Set<() => void>();
 
-export function confirmDialog(title: string, body: ReactNode, ok = "Confirm"): Promise<boolean> {
+export function confirmDialog(title: string, body: string, ok = "Confirm"): Promise<boolean> {
   return new Promise((resolve) => {
     confirmReq = { title, body, ok, resolve };
     confirmSubs.forEach((s) => s());
@@ -77,7 +77,7 @@ export function ConfirmHost() {
   return (
     <Modal onClose={() => done(false)}>
       <h3>{req.title}</h3>
-      <p className="modal__sub">{req.body}</p>
+      <p className="modal__sub" dangerouslySetInnerHTML={{ __html: req.body }} />
       <div className="modal__actions">
         <button className="btn btn--ghost" onClick={() => done(false)}>
           Cancel

@@ -1,10 +1,13 @@
 // Shared constants for iIrys Frame.
 
 export const APP_NAME = "iIrys Frame";
+export const APP_VERSION = "0.4.0";
 export const FREE_THRESHOLD = 100 * 1024; // 100 KiB free on Irys
 
 export const GATEWAY = "https://gateway.irys.xyz";
-export const GRAPHQL = "https://arweave.mainnet.irys.xyz/graphql";
+// uploader.irys.xyz is the live index; the old arweave.mainnet.irys.xyz
+// endpoint stopped indexing new uploads (verified 2026-07-02).
+export const GRAPHQL = "https://uploader.irys.xyz/graphql";
 
 export const BASE = {
   id: 8453,

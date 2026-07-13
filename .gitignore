@@ -1,48 +1,20 @@
-# ── dependencies ─────────────────────────────────────────────────────────
+# dependencies
 node_modules/
-**/node_modules/
 
-# ── build output ─────────────────────────────────────────────────────────
+# build output
 dist/
-**/dist/
-.vite/
-**/.vite/
 
-# ── secrets & local state — NEVER commit ─────────────────────────────────
+# secrets & local state — NEVER commit
 .env
 .env.*
 !.env.example
-**/.env
-**/.env.*
-!**/.env.example
 data/
-**/data/
 *.key
 *.pem
-*.keystore
-*.mnemonic
-secrets.*
 
-# ── Foundry (contracts) — build artifacts only (lib/ tracked via submodules)
-contracts/out/
-contracts/cache/
-contracts/broadcast/
-contracts/foundry.lock
-
-# ── python (v1 tooling, if any) ──────────────────────────────────────────
-.venv/
-venv*/
-__pycache__/
-*.pyc
-
-# ── training (generated in CI, uploaded as artifact) ─────────────────────
-training_reports/
-
-# ── os / editor ──────────────────────────────────────────────────────────
+# os / editor
 .DS_Store
 *.log
 npm-debug.log*
 .idea/
 .vscode/
-.claude/
-**/.claude/

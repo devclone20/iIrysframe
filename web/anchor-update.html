@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ATLAS soul — refine the Irys anchor (v2)</title>
+<style>
+  :root{ --bg:#08090C; --s1:#0E1014; --s2:#14171D; --bd:#1A1D24; --bds:#2A2F3A;
+    --tx:#ECEEF3; --mut:#98A0AE; --faint:#5E6675; --ok:#7FdCa4; --bad:#E0928C; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.6 "Inter",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:48px 22px 80px}
+  h1{font-size:26px;letter-spacing:-.02em;margin:0 0 6px}
+  .eye{font:11px/1 "JetBrains Mono",monospace;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--faint);margin-bottom:14px}
+  p{color:var(--mut);max-width:64ch}
+  .card{border:1px solid var(--bd);background:var(--s1);border-radius:14px;padding:18px 20px;margin:18px 0}
+  .card h2{font-size:13px;margin:0 0 10px;color:var(--tx);font-weight:600;
+    font-family:"JetBrains Mono",monospace;letter-spacing:.04em}
+  pre,code{font-family:"JetBrains Mono","SF Mono",monospace;font-size:12.5px}
+  pre{white-space:pre-wrap;color:var(--mut);margin:0}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px}
+  button{font:600 14px "Inter",sans-serif;padding:10px 18px;border-radius:10px;cursor:pointer;
+    border:1px solid var(--bds);background:var(--s2);color:var(--tx)}
+  button:hover:not(:disabled){border-color:var(--tx)}
+  button.pri{background:var(--tx);color:var(--bg);border-color:var(--tx)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  #addr{font-family:"JetBrains Mono",monospace;font-size:12.5px}
+  .ok{color:var(--ok)} .bad{color:var(--bad)}
+  #log{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--mut);
+    background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:12px;
+    max-height:220px;overflow:auto;margin-top:12px}
+  #log div{padding:1px 0}
+  #result{margin-top:12px;font-size:13.5px;line-height:1.8}
+  #result code{background:var(--s2);border:1px solid var(--bd);border-radius:5px;padding:1px 6px}
+  #result a{color:var(--tx);text-decoration:underline;text-underline-offset:3px}
+  .hint{color:var(--faint);font-size:12.5px;margin-top:6px}
+  .warn{border-left:2px solid var(--bad);padding-left:14px;color:var(--mut);font-size:13.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eye">ATLAS #1 · mutable soul anchor</div>
+  <h1>Refine the ATLAS soul → v2</h1>
+  <p>This uploads the v2 <b>Harness Architect</b> soul to the mutable Irys anchor your NFT reads,
+     signed by <b>MetaMask</b>. Your private key never leaves the wallet — you just approve the
+     signature pop-up. Only the wallet that sealed the root (<code>0xb94b…0fad</code>) can update it.</p>
+
+  <div class="card">
+    <h2>1 · what will be sealed</h2>
+    <pre id="meta">loading…</pre>
+  </div>
+
+  <div class="card">
+    <h2>2 · connect the owner wallet</h2>
+    <div class="row">
+      <button id="connect">Connect MetaMask</button>
+      <span>connected: <span id="addr">—</span></span>
+    </div>
+    <div class="hint">Must be the account <code>0xb94bba9d50a8b4b7473cb2687f5f633a54710fad</code>.
+      A different account is refused (and the anchor could not be changed by it anyway).</div>
+  </div>
+
+  <div class="card">
+    <h2>3 · sign &amp; upload (free — under 100 KiB)</h2>
+    <div class="row"><button id="upload" class="pri" disabled>Sign &amp; upload to Irys</button></div>
+    <div id="result"></div>
+    <div id="log"></div>
+  </div>
+
+  <div class="card warn">
+    Do <b>not</b> use your 12-word secret recovery phrase anywhere. This page never asks for a key
+    or a phrase — MetaMask signs the upload for you. After it succeeds you can close the tab and stop
+    the dev server.
+  </div>
+</div>
+<script type="module" src="/src/anchor-update.ts"></script>
+</body>
+</html>

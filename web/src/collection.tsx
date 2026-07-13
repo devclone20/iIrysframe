@@ -127,7 +127,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
   const sealAll = useCallback(async () => {
     const irys = store.irys;
     if (!irys) return toast("Connect your wallet first", "err");
-    if (!staged) return toast("Nothing to seal — generate a collection in the Engine", "err");
+    if (!staged) return toast("Nothing to seal — generate a collection in 2D NFT", "err");
 
     setSealing(true);
     setReceipts([]);

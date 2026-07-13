@@ -6,14 +6,19 @@ import { BASE } from "../config";
 import { shortAddr, addrGradient, fmtEth, usdOf, fmtUsd } from "../format";
 import { copy, confirmDialog, toast, errMsg } from "../ui";
 import { fund, withdrawAll } from "../irys";
+import { useProfile } from "../profile";
+import { UserGlyph } from "./Settings";
+import { openAssistant, openSettings } from "../panels";
 
 const TABS: { key: Tab; label: string }[] = [
-  { key: "soul", label: "Soul" },
-  { key: "engine", label: "Engine" },
-  { key: "iirys", label: "iIrys" },
+  { key: "create", label: "Create" },
+  { key: "launch", label: "Launch" },
   { key: "vault", label: "Vault" },
+  { key: "agent", label: "Agent" },
   { key: "swap", label: "Swap" },
-  { key: "contracts", label: "Contracts" },
+  { key: "soulupdate", label: "Soul Update" },
+  // Playground stays last — it's the experimental, off-chain sandbox.
+  { key: "playground", label: "Playground" },
 ];
 
 export function TopBar({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
@@ -34,7 +39,7 @@ export function TopBar({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
         </div>
       </div>
 
-      <nav className="tabs tabs--6" role="tablist">
+      <nav className={`tabs tabs--${TABS.length}`} role="tablist">
         {TABS.map((t) => (
           <button key={t.key} className={`tab ${tab === t.key ? "is-active" : ""}`} onClick={() => onTab(t.key)} role="tab">
             {t.label}
@@ -62,7 +67,7 @@ export function TopBar({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
 
 function WalletButton() {
   const w = useWallet();
-  const store = useStore();
+  const profile = useProfile();
   const [open, setOpen] = useState(false);
 
   if (!w.connected) {
@@ -72,18 +77,17 @@ function WalletButton() {
       </button>
     );
   }
+  // Connected: a quiet user button only — every detail lives in the popover.
   return (
     <div className="wallet-wrap">
-      <button className="wallet" onClick={() => setOpen((o) => !o)}>
-        <span className="wallet__ident" style={{ background: addrGradient(w.address) }} />
-        <div className="wallet__meta">
-          <span className="wallet__addr">{shortAddr(w.address)}</span>
-          <span className="wallet__bal">
-            {fmtEth(store.baseEth)} ETH
-            {usdOf(store.baseEth, store.ethUsd) && <em className="wallet__usd"> · {usdOf(store.baseEth, store.ethUsd)}</em>}
+      <button className="user-btn" onClick={() => setOpen((o) => !o)} aria-label="Account" title="Account">
+        {profile.photo ? (
+          <img className="user-btn__photo" src={profile.photo} alt="" />
+        ) : (
+          <span className="user-btn__ident" style={{ background: addrGradient(w.address) }}>
+            <UserGlyph size={15} />
           </span>
-        </div>
-        <span className="wallet__chev">⌄</span>
+        )}
       </button>
       {open && <WalletPanel onClose={() => setOpen(false)} />}
     </div>
@@ -93,6 +97,7 @@ function WalletButton() {
 function WalletPanel({ onClose }: { onClose: () => void }) {
   const w = useWallet();
   const store = useStore();
+  const profile = useProfile();
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -109,13 +114,7 @@ function WalletPanel({ onClose }: { onClose: () => void }) {
     const usd = usdOf(eth, store.ethUsd);
     const ok = await confirmDialog(
       "Fund Irys account",
-      <>
-        Transfer{" "}
-        <strong>
-          {eth} ETH{usd ? ` (≈ ${usd})` : ""}
-        </strong>{" "}
-        on Base into your Irys storage credit. This is an on-chain transaction from your wallet.
-      </>,
+      `Transfer <strong>${eth} ETH${usd ? ` (≈ ${usd})` : ""}</strong> on Base into your Irys storage credit. This is an on-chain transaction from your wallet.`,
       "Fund",
     );
     if (!ok) return;
@@ -139,13 +138,7 @@ function WalletPanel({ onClose }: { onClose: () => void }) {
     const usd = usdOf(store.nodeEth, store.ethUsd);
     const ok = await confirmDialog(
       "Withdraw Irys credit",
-      <>
-        Withdraw your unused Irys credit (
-        <strong>
-          {fmtEth(store.nodeEth)} ETH{usd ? ` ≈ ${usd}` : ""}
-        </strong>
-        ) back to your wallet on Base.
-      </>,
+      `Withdraw your unused Irys credit (<strong>${fmtEth(store.nodeEth)} ETH${usd ? ` ≈ ${usd}` : ""}</strong>) back to your wallet on Base.`,
       "Withdraw all",
     );
     if (!ok) return;
@@ -168,8 +161,13 @@ function WalletPanel({ onClose }: { onClose: () => void }) {
       <div className="pop-scrim" onClick={onClose} />
       <div className="wallet-pop">
         <div className="wp__head">
-          <span className="wp__ident" style={{ background: addrGradient(w.address) }} />
+          {profile.photo ? (
+            <img className="wp__photo" src={profile.photo} alt="" />
+          ) : (
+            <span className="wp__ident" style={{ background: addrGradient(w.address) }} />
+          )}
           <div className="wp__id">
+            {profile.name && <div className="wp__name">{profile.name}</div>}
             <div className="wp__addr">{shortAddr(w.address)}</div>
             <div className="wp__type">{w.email ?? w.walletType ?? "wallet"}</div>
           </div>
@@ -180,8 +178,37 @@ function WalletPanel({ onClose }: { onClose: () => void }) {
             Copy address
           </button>
           <a className="btn btn--ghost btn--mini" href={`${BASE.explorer}/address/${w.address}`} target="_blank" rel="noopener noreferrer">
-            Basescan ↗
+            Basescan
           </a>
+        </div>
+
+        <div className="wp__assistant">
+          <button
+            className="wp__assistant-open"
+            onClick={() => {
+              openAssistant();
+              onClose();
+            }}
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path d="M4 5.5h16v10H8.5L4 19V5.5Z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+              <path d="M8 9.2h8M8 12h5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            <span>
+              <strong>Ask the iIrys assistant</strong>
+              <em>AI support on your own LLM key</em>
+            </span>
+          </button>
+          <button
+            className="wp__assistant-cfg"
+            onClick={() => {
+              openSettings("assistant");
+              onClose();
+            }}
+            title="Connect your LLM"
+          >
+            Connect
+          </button>
         </div>
 
         <div className={`wp__net ${w.onBase ? "" : "is-wrong"}`}>
@@ -233,12 +260,12 @@ function WalletPanel({ onClose }: { onClose: () => void }) {
             {store.ethUsd && <span className="wp__rate"> · ETH {fmtUsd(store.ethUsd)}</span>}
           </span>
           <button className="wp__withdraw" onClick={withdrawIrys} disabled={busy || !hasCredit}>
-            ↩ Withdraw unused credit
+            Withdraw unused credit
           </button>
         </div>
 
         <button className="btn btn--ghost btn--mini wp__refresh" onClick={() => store.refresh()}>
-          ⟳ Refresh balances
+          Refresh balances
         </button>
         <button
           className="btn btn--block"

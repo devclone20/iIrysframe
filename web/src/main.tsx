@@ -5,7 +5,10 @@ import { base } from "viem/chains";
 import App from "./App";
 import { PrivyWalletProvider, StubWalletProvider } from "./wallet";
 import { StoreProvider } from "./store";
+import { applyTheme } from "./profile";
 import "./styles.css";
+
+applyTheme();
 
 const appId = (import.meta.env.VITE_PRIVY_APP_ID as string | undefined)?.trim();
 
@@ -19,7 +22,7 @@ root.render(
         config={{
           appearance: {
             theme: "dark",
-            accentColor: "#5ef2c9",
+            accentColor: "#D4D9E1",
             walletChainType: "ethereum-only",
             showWalletLoginFirst: true,
           },

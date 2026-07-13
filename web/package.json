@@ -11,26 +11,31 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@gltf-transform/core": "^4.4.0",
+    "@gltf-transform/extensions": "^4.4.0",
+    "@gltf-transform/functions": "^4.4.0",
     "@irys/web-upload": "^0.0.15",
     "@irys/web-upload-ethereum": "^0.0.15",
     "@irys/web-upload-ethereum-ethers-v6": "^0.0.6",
     "@privy-io/react-auth": "^2.13.0",
+    "@react-three/drei": "^9.122.0",
+    "@react-three/fiber": "^8.18.0",
     "ethers": "^6.13.4",
+    "meshoptimizer": "^0.22.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-markdown": "^9.1.0",
     "remark-gfm": "^4.0.1",
+    "three": "^0.160.0",
     "viem": "^2.21.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "@types/three": "^0.160.0",
     "@vitejs/plugin-react": "^4.3.4",
     "typescript": "^5.7.2",
     "vite": "^6.0.7",
     "vite-plugin-node-polyfills": "^0.23.0"
-  },
-  "overrides": {
-    "ws": "^8.21.0"
   }
 }

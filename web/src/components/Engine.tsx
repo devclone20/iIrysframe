@@ -306,7 +306,7 @@ export function Engine({ goIrys }: { goIrys: () => void }) {
           </button>
           {composed.length > 0 && !genBusy && (
             <button className="btn btn--block" onClick={sendToIrys}>
-              Seal on Irys → ({composed.length} items)
+              Seal on Irys ({composed.length} items)
             </button>
           )}
         </article>
@@ -326,8 +326,7 @@ export function Engine({ goIrys }: { goIrys: () => void }) {
 
           {composed.length === 0 ? (
             <div className="empty">
-              <div className="empty__glyph">⬡</div>
-              <p>
+                            <p>
                 {genBusy
                   ? "Generating…"
                   : "Configure the traits + weights and hit “Generate collection”. Each item is a unique combination, with computed rarity."}
@@ -413,10 +412,10 @@ function TraitCard(props: {
 
       <div className="folder__flags">
         <button className={`flag ${t.visible ? "on" : ""}`} onClick={props.onVisible} title="Included in generation">
-          {t.visible ? "👁 visible" : "🚫 hidden"}
+          {t.visible ? "visible" : "hidden"}
         </button>
         <button className={`flag ${t.required ? "on" : ""}`} onClick={props.onRequired} title="Always present">
-          {t.required ? "★ required" : "☆ optional"}
+          {t.required ? "required" : "optional"}
         </button>
         {t.overlay && <span className="flag flag--ov">overlay (top)</span>}
         <span className="folder__count">{t.variants.length} {t.variants.length === 1 ? "variant" : "variants"}</span>
