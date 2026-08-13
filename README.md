@@ -107,7 +107,8 @@ The split is deliberate: Irys holds the artefacts, Base holds the claim on them,
 ## Quickstart
 
 ```bash
-cd ~/Desktop/HTML/iIrysframe
+git clone https://github.com/devclone20/iIrysframe.git
+cd iIrysframe
 npm install
 cp .env.example .env        # then edit .env
 npm run dev                 # → http://127.0.0.1:1717
