@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 450" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14">
+  <defs>
+    <linearGradient id="accentline" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#5ed3d8" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#5ed3d8" stop-opacity="0.1"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1100" height="450" rx="14" fill="#0d1117"/>
+  <rect x="1.5" y="1.5" width="1097" height="447" rx="13" fill="none" stroke="#30363d" stroke-width="3"/>
+  <rect x="0" y="442" width="1100" height="4" fill="url(#accentline)" opacity="0.9"/>
+
+  <circle cx="28" cy="26" r="6" fill="#ff5f57"/>
+  <circle cx="50" cy="26" r="6" fill="#febc2e"/>
+  <circle cx="72" cy="26" r="6" fill="#28c840"/>
+
+  <g stroke="#5ed3d8" fill="none" stroke-width="1.6" stroke-linecap="round">
+    <rect x="101.5" y="13.5" width="19" height="18" rx="5.5"/>
+    <circle cx="111" cy="19.6" r="2.2"/>
+    <path d="M111 21.8 L111 26.6"/>
+  </g>
+
+  <text x="550" y="31" text-anchor="middle" font-size="13" fill="#8b949e">the vault is an index — tags in, grouped inventory out</text>
+
+  <!-- tags -->
+  <rect x="40" y="76" width="320" height="252" rx="12" fill="#161b22" stroke="#30363d"/>
+  <text x="56" y="104" font-size="13" font-weight="700" fill="#5ed3d8">every upload carries</text>
+  <path d="M56 118 L344 118" stroke="#30363d" stroke-width="1"/>
+  <g font-size="11">
+    <text x="56" y="146" fill="#5ed3d8">App-Name</text><text x="152" y="146" fill="#c9d1d9">iIrys Frame</text>
+    <text x="56" y="170" fill="#5ed3d8">Item</text><text x="152" y="170" fill="#c9d1d9">the NFT it belongs to</text>
+    <text x="56" y="194" fill="#5ed3d8">Type</text><text x="152" y="194" fill="#c9d1d9">layer · final · metadata</text>
+    <text x="56" y="218" fill="#5ed3d8">Name</text><text x="152" y="218" fill="#c9d1d9">display label</text>
+    <text x="56" y="242" fill="#5ed3d8">Edition</text><text x="152" y="242" fill="#c9d1d9">position in the drop</text>
+    <text x="56" y="266" fill="#5ed3d8">Collection</text><text x="152" y="266" fill="#c9d1d9">folder in the Vault</text>
+    <text x="56" y="290" fill="#5ed3d8">Tier</text><text x="152" y="290" fill="#c9d1d9">rare · superrare · iclone</text>
+  </g>
+  <text x="56" y="314" font-size="10.5" fill="#566070">written by the app, the CLI and the API alike</text>
+
+  <!-- query -->
+  <rect x="390" y="76" width="320" height="252" rx="12" fill="#161b22" stroke="#30363d"/>
+  <text x="406" y="104" font-size="13" font-weight="700" fill="#5ed3d8">queried back by tag</text>
+  <path d="M406 118 L694 118" stroke="#30363d" stroke-width="1"/>
+  <g font-size="11" fill="#c9d1d9">
+    <text x="406" y="146">POST uploader.irys.xyz/graphql</text>
+    <text x="406" y="176">transactions(</text>
+    <text x="420" y="200">owners: [ your wallet ]</text>
+    <text x="420" y="224">tags: App-Name = iIrys Frame</text>
+    <text x="420" y="248">first: 200, order: DESC</text>
+    <text x="406" y="272">)</text>
+  </g>
+  <text x="406" y="302" font-size="10.5" fill="#566070">paged by endCursor · up to 10 pages</text>
+
+  <!-- grouping -->
+  <rect x="740" y="76" width="320" height="252" rx="12" fill="#161b22" stroke="#30363d"/>
+  <text x="756" y="104" font-size="13" font-weight="700" fill="#5ed3d8">grouped into stock</text>
+  <path d="M756 118 L1044 118" stroke="#30363d" stroke-width="1"/>
+  <g font-size="11">
+    <text x="756" y="146" fill="#5ed3d8">layers</text><text x="852" y="146" fill="#c9d1d9">sorted by Layer-Index</text>
+    <text x="756" y="170" fill="#5ed3d8">final</text><text x="852" y="170" fill="#c9d1d9">the composed image</text>
+    <text x="756" y="194" fill="#5ed3d8">metadata</text><text x="852" y="194" fill="#c9d1d9">the mint link</text>
+    <text x="756" y="218" fill="#5ed3d8">mintable</text><text x="852" y="218" fill="#c9d1d9">✓ metadata present</text>
+    <text x="756" y="242" fill="#5ed3d8">collection</text><text x="852" y="242" fill="#c9d1d9">one folder per tag</text>
+    <text x="756" y="266" fill="#5ed3d8">counts</text><text x="852" y="266" fill="#c9d1d9">mintable · complete</text>
+    <text x="756" y="290" fill="#5ed3d8">covers</text><text x="852" y="290" fill="#c9d1d9">up to 4 thumbnails</text>
+  </g>
+  <text x="756" y="314" font-size="10.5" fill="#566070">grouped by the Item tag, newest first</text>
+
+  <g stroke="#566070" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M364 200 L386 200"/><path d="M380 194 L386 200 L380 206"/>
+    <path d="M714 200 L736 200"/><path d="M730 194 L736 200 L730 206"/>
+  </g>
+
+  <text x="550" y="358" text-anchor="middle" font-size="11" fill="#566070">the v1 server keeps a local data/manifest.json — a fast mirror, never the source of truth</text>
+  <text x="550" y="390" text-anchor="middle" font-size="13" fill="#8b949e">no database — the vault is rebuilt from Irys tags on every load</text>
+</svg>

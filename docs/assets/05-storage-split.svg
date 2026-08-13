@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 440" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14">
+  <defs>
+    <linearGradient id="accentline" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#5ed3d8" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#5ed3d8" stop-opacity="0.1"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1100" height="440" rx="14" fill="#0d1117"/>
+  <rect x="1.5" y="1.5" width="1097" height="437" rx="13" fill="none" stroke="#30363d" stroke-width="3"/>
+  <rect x="0" y="432" width="1100" height="4" fill="url(#accentline)" opacity="0.9"/>
+
+  <circle cx="28" cy="26" r="6" fill="#ff5f57"/>
+  <circle cx="50" cy="26" r="6" fill="#febc2e"/>
+  <circle cx="72" cy="26" r="6" fill="#28c840"/>
+
+  <g stroke="#5ed3d8" fill="none" stroke-width="1.6" stroke-linecap="round">
+    <rect x="101.5" y="13.5" width="19" height="18" rx="5.5"/>
+    <circle cx="111" cy="19.6" r="2.2"/>
+    <path d="M111 21.8 L111 26.6"/>
+  </g>
+
+  <text x="550" y="31" text-anchor="middle" font-size="13" fill="#8b949e">what lives on irys and what lives on base — bridged by one string</text>
+
+  <!-- Irys -->
+  <rect x="40" y="76" width="430" height="252" rx="12" fill="#161b22" stroke="#30363d"/>
+  <rect x="52" y="76" width="406" height="3" rx="1.5" fill="#5ed3d8"/>
+  <text x="56" y="106" font-size="14" font-weight="700" fill="#5ed3d8">Irys — the datachain</text>
+  <text x="56" y="126" font-size="11" fill="#8b949e">permanent bytes, retrievable by id, queryable by tag</text>
+  <path d="M56 140 L454 140" stroke="#30363d" stroke-width="1"/>
+  <g font-size="11">
+    <text x="56" y="166" fill="#5ed3d8">layer</text><text x="200" y="166" fill="#c9d1d9">trait art kept as a permanent bank</text>
+    <text x="56" y="190" fill="#5ed3d8">final</text><text x="200" y="190" fill="#c9d1d9">the composed marketplace image</text>
+    <text x="56" y="214" fill="#5ed3d8">metadata</text><text x="200" y="214" fill="#c9d1d9">ERC-721 JSON · traits · ai_soul</text>
+    <text x="56" y="238" fill="#5ed3d8">model</text><text x="200" y="238" fill="#c9d1d9">glb for the 3D agents</text>
+    <text x="56" y="262" fill="#5ed3d8">collection-profile</text><text x="200" y="262" fill="#c9d1d9">the contractURI() JSON</text>
+    <text x="56" y="286" fill="#5ed3d8">drop-manifest</text><text x="200" y="286" fill="#c9d1d9">the dropBaseURI for a drop</text>
+  </g>
+  <text x="56" y="312" font-size="10.5" fill="#566070">gateway.irys.xyz/:id · /mutable/:id keeps one stable link</text>
+
+  <!-- bridge -->
+  <text x="550" y="140" text-anchor="middle" font-size="10.5" fill="#566070">the bridge</text>
+  <rect x="492" y="164" width="116" height="34" rx="8" fill="#0d1117" stroke="#5ed3d8"/>
+  <text x="550" y="186" text-anchor="middle" font-size="12" fill="#5ed3d8">tokenURI</text>
+  <text x="550" y="224" text-anchor="middle" font-size="10.5" fill="#566070">one string</text>
+  <g stroke="#566070" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M472 181 L488 181"/><path d="M482 175 L488 181 L482 187"/>
+    <path d="M610 181 L626 181"/><path d="M620 175 L626 181 L620 187"/>
+  </g>
+
+  <!-- Base -->
+  <rect x="630" y="76" width="430" height="252" rx="12" fill="#161b22" stroke="#30363d"/>
+  <rect x="642" y="76" width="406" height="3" rx="1.5" fill="#6ea8ff"/>
+  <text x="646" y="106" font-size="14" font-weight="700" fill="#6ea8ff">Base — chainId 8453</text>
+  <text x="646" y="126" font-size="11" fill="#8b949e">ownership, rules and royalties</text>
+  <path d="M646 140 L1044 140" stroke="#30363d" stroke-width="1"/>
+  <g font-size="11">
+    <text x="646" y="166" fill="#6ea8ff">tokenId</text><text x="790" y="166" fill="#c9d1d9">ERC-721A, sequential, from 1</text>
+    <text x="646" y="190" fill="#6ea8ff">tokenURI(id)</text><text x="790" y="190" fill="#c9d1d9">the Irys link, per token</text>
+    <text x="646" y="214" fill="#6ea8ff">royaltyInfo</text><text x="790" y="214" fill="#c9d1d9">ERC-2981 — 5% by default</text>
+    <text x="646" y="238" fill="#6ea8ff">tokenAccount</text><text x="790" y="238" fill="#c9d1d9">ERC-6551 wallet the NFT owns</text>
+    <text x="646" y="262" fill="#6ea8ff">publicMint</text><text x="790" y="262" fill="#c9d1d9">off until the owner opens it</text>
+    <text x="646" y="286" fill="#6ea8ff">ogCard</text><text x="790" y="286" fill="#c9d1d9">optional OG-holder gate</text>
+  </g>
+  <text x="646" y="312" font-size="10.5" fill="#566070">the token is the agent, the key and the vault</text>
+
+  <text x="550" y="352" text-anchor="middle" font-size="11" fill="#566070">every seal under 100 KiB is free · mainnet is permanent, devnet keeps about 60 days</text>
+  <text x="550" y="384" text-anchor="middle" font-size="13" fill="#8b949e">the datachain keeps the artefact — the chain keeps the claim on it</text>
+</svg>

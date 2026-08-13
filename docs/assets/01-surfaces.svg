@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 430" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14">
+  <defs>
+    <linearGradient id="accentline" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#5ed3d8" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#5ed3d8" stop-opacity="0.1"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1100" height="430" rx="14" fill="#0d1117"/>
+  <rect x="1.5" y="1.5" width="1097" height="427" rx="13" fill="none" stroke="#30363d" stroke-width="3"/>
+  <rect x="0" y="422" width="1100" height="4" fill="url(#accentline)" opacity="0.9"/>
+
+  <circle cx="28" cy="26" r="6" fill="#ff5f57"/>
+  <circle cx="50" cy="26" r="6" fill="#febc2e"/>
+  <circle cx="72" cy="26" r="6" fill="#28c840"/>
+
+  <g stroke="#5ed3d8" fill="none" stroke-width="1.6" stroke-linecap="round">
+    <rect x="101.5" y="13.5" width="19" height="18" rx="5.5"/>
+    <circle cx="111" cy="19.6" r="2.2"/>
+    <path d="M111 21.8 L111 26.6"/>
+  </g>
+
+  <text x="550" y="31" text-anchor="middle" font-size="13" fill="#8b949e">four ways in — every path writes the same irys tags</text>
+
+  <!-- web/ -->
+  <rect x="40" y="72" width="245" height="252" rx="12" fill="#161b22" stroke="#30363d"/>
+  <rect x="52" y="72" width="221" height="3" rx="1.5" fill="#5ed3d8"/>
+  <text x="56" y="104" font-size="14" font-weight="700" fill="#5ed3d8">web/</text>
+  <text x="56" y="124" font-size="11" fill="#8b949e">primary — wallet studio</text>
+  <path d="M56 138 L269 138" stroke="#30363d" stroke-width="1"/>
+  <g font-size="11" fill="#c9d1d9">
+    <circle cx="58" cy="158" r="2" fill="#5ed3d8"/><text x="70" y="162">React + Vite + Privy login</text>
+    <circle cx="58" cy="178" r="2" fill="#5ed3d8"/><text x="70" y="182">Create · Launch · Vault tabs</text>
+    <circle cx="58" cy="198" r="2" fill="#5ed3d8"/><text x="70" y="202">Agent · Swap · Soul Update</text>
+    <circle cx="58" cy="218" r="2" fill="#5ed3d8"/><text x="70" y="222">seal → compose → mint link</text>
+  </g>
+  <path d="M56 244 L269 244" stroke="#30363d" stroke-width="1"/>
+  <text x="56" y="266" font-size="10" fill="#566070">pays with</text>
+  <text x="56" y="286" font-size="11.5" fill="#5ed3d8">your wallet · Base ETH</text>
+  <text x="56" y="310" font-size="10.5" fill="#566070">cd web &amp;&amp; npm run dev</text>
+
+  <!-- contracts/ -->
+  <rect x="298" y="72" width="245" height="252" rx="12" fill="#161b22" stroke="#30363d"/>
+  <rect x="310" y="72" width="221" height="3" rx="1.5" fill="#b18bf5"/>
+  <text x="314" y="104" font-size="14" font-weight="700" fill="#b18bf5">contracts/</text>
+  <text x="314" y="124" font-size="11" fill="#8b949e">the iNFT on Base</text>
+  <path d="M314 138 L527 138" stroke="#30363d" stroke-width="1"/>
+  <g font-size="11" fill="#c9d1d9">
+    <circle cx="316" cy="158" r="2" fill="#b18bf5"/><text x="328" y="162">Foundry · solc 0.8.28</text>
+    <circle cx="316" cy="178" r="2" fill="#b18bf5"/><text x="328" y="182">ICloneAgent.sol — the iNFT</text>
+    <circle cx="316" cy="198" r="2" fill="#b18bf5"/><text x="328" y="202">CloneForge.sol — drops</text>
+    <circle cx="316" cy="218" r="2" fill="#b18bf5"/><text x="328" y="222">FrameRoyaltySplit.sol</text>
+  </g>
+  <path d="M314 244 L527 244" stroke="#30363d" stroke-width="1"/>
+  <text x="314" y="266" font-size="10" fill="#566070">pays with</text>
+  <text x="314" y="286" font-size="11.5" fill="#b18bf5">gas on Base</text>
+  <text x="314" y="310" font-size="10.5" fill="#566070">forge test -vv</text>
+
+  <!-- terminal/ -->
+  <rect x="556" y="72" width="245" height="252" rx="12" fill="#161b22" stroke="#30363d"/>
+  <rect x="568" y="72" width="221" height="3" rx="1.5" fill="#f0a14a"/>
+  <text x="572" y="104" font-size="14" font-weight="700" fill="#f0a14a">terminal/</text>
+  <text x="572" y="124" font-size="11" fill="#8b949e">seal from the shell</text>
+  <path d="M572 138 L785 138" stroke="#30363d" stroke-width="1"/>
+  <g font-size="11" fill="#c9d1d9">
+    <circle cx="574" cy="158" r="2" fill="#f0a14a"/><text x="586" y="162">npm i -g @irys/cli</text>
+    <circle cx="574" cy="178" r="2" fill="#f0a14a"/><text x="586" y="182">irys upload-dir -t base-eth</text>
+    <circle cx="574" cy="198" r="2" fill="#f0a14a"/><text x="586" y="202">one item per folder run</text>
+    <circle cx="574" cy="218" r="2" fill="#f0a14a"/><text x="586" y="222">same tags as the web app</text>
+  </g>
+  <path d="M572 244 L785 244" stroke="#30363d" stroke-width="1"/>
+  <text x="572" y="266" font-size="10" fill="#566070">pays with</text>
+  <text x="572" y="286" font-size="11.5" fill="#f0a14a">IRYS_KEY · Base ETH</text>
+  <text x="572" y="310" font-size="10.5" fill="#566070">./seal-layers.sh &lt;folder&gt;</text>
+
+  <!-- src/ + public/ -->
+  <rect x="814" y="72" width="245" height="252" rx="12" fill="#161b22" stroke="#30363d"/>
+  <rect x="826" y="72" width="221" height="3" rx="1.5" fill="#8b949e"/>
+  <text x="830" y="104" font-size="14" font-weight="700" fill="#8b949e">src/ + public/</text>
+  <text x="830" y="124" font-size="11" fill="#8b949e">v1 headless automation</text>
+  <path d="M830 138 L1043 138" stroke="#30363d" stroke-width="1"/>
+  <g font-size="11" fill="#c9d1d9">
+    <circle cx="832" cy="158" r="2" fill="#8b949e"/><text x="844" y="162">Fastify + TypeScript</text>
+    <circle cx="832" cy="178" r="2" fill="#8b949e"/><text x="844" y="182">signs server-side, 127.0.0.1</text>
+    <circle cx="832" cy="198" r="2" fill="#8b949e"/><text x="844" y="202">FUND_MAX_ETH hard cap</text>
+    <circle cx="832" cy="218" r="2" fill="#8b949e"/><text x="844" y="222">optional x-vault-token</text>
+  </g>
+  <path d="M830 244 L1043 244" stroke="#30363d" stroke-width="1"/>
+  <text x="830" y="266" font-size="10" fill="#566070">pays with</text>
+  <text x="830" y="286" font-size="11.5" fill="#8b949e">server .env PRIVATE_KEY</text>
+  <text x="830" y="310" font-size="10.5" fill="#566070">npm run dev → :1717</text>
+
+  <text x="550" y="370" text-anchor="middle" font-size="13" fill="#8b949e">different doors, one vault — anything sealed with the App-Name tag shows up</text>
+</svg>

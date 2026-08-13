@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 440" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14">
+  <defs>
+    <linearGradient id="accentline" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#5ed3d8" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#5ed3d8" stop-opacity="0.1"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1100" height="440" rx="14" fill="#0d1117"/>
+  <rect x="1.5" y="1.5" width="1097" height="437" rx="13" fill="none" stroke="#30363d" stroke-width="3"/>
+  <rect x="0" y="432" width="1100" height="4" fill="url(#accentline)" opacity="0.9"/>
+
+  <circle cx="28" cy="26" r="6" fill="#ff5f57"/>
+  <circle cx="50" cy="26" r="6" fill="#febc2e"/>
+  <circle cx="72" cy="26" r="6" fill="#28c840"/>
+
+  <g stroke="#5ed3d8" fill="none" stroke-width="1.6" stroke-linecap="round">
+    <rect x="101.5" y="13.5" width="19" height="18" rx="5.5"/>
+    <circle cx="111" cy="19.6" r="2.2"/>
+    <path d="M111 21.8 L111 26.6"/>
+  </g>
+
+  <text x="550" y="31" text-anchor="middle" font-size="13" fill="#8b949e">the seal-to-mint pipeline — three uploads, one link, one transaction</text>
+
+  <!-- 1 layers -->
+  <rect x="30" y="76" width="180" height="196" rx="12" fill="#161b22" stroke="#30363d"/>
+  <circle cx="50" cy="104" r="11" fill="none" stroke="#5ed3d8" stroke-width="1.4"/>
+  <text x="50" y="108" text-anchor="middle" font-size="11" fill="#5ed3d8">1</text>
+  <text x="70" y="109" font-size="13" font-weight="700" fill="#5ed3d8">layers</text>
+  <path d="M46 128 L194 128" stroke="#30363d" stroke-width="1"/>
+  <g font-size="10.5" fill="#c9d1d9">
+    <text x="46" y="152">ordered PNG layers</text>
+    <text x="46" y="172">one Item id per NFT</text>
+    <text x="46" y="192">index 0 draws first</text>
+  </g>
+  <rect x="46" y="222" width="148" height="26" rx="6" fill="#0d1117" stroke="#30363d"/>
+  <text x="120" y="239" text-anchor="middle" font-size="10.5" fill="#8b949e">Type: layer</text>
+
+  <!-- 2 final -->
+  <rect x="245" y="76" width="180" height="196" rx="12" fill="#161b22" stroke="#30363d"/>
+  <circle cx="265" cy="104" r="11" fill="none" stroke="#5ed3d8" stroke-width="1.4"/>
+  <text x="265" y="108" text-anchor="middle" font-size="11" fill="#5ed3d8">2</text>
+  <text x="285" y="109" font-size="13" font-weight="700" fill="#5ed3d8">final</text>
+  <path d="M261 128 L409 128" stroke="#30363d" stroke-width="1"/>
+  <g font-size="10.5" fill="#c9d1d9">
+    <text x="261" y="152">composed on a canvas</text>
+    <text x="261" y="172">the marketplace image</text>
+    <text x="261" y="192">PNG, top-left aligned</text>
+  </g>
+  <rect x="261" y="222" width="148" height="26" rx="6" fill="#0d1117" stroke="#30363d"/>
+  <text x="335" y="239" text-anchor="middle" font-size="10.5" fill="#8b949e">Type: final</text>
+
+  <!-- 3 metadata -->
+  <rect x="460" y="76" width="180" height="196" rx="12" fill="#161b22" stroke="#30363d"/>
+  <circle cx="480" cy="104" r="11" fill="none" stroke="#5ed3d8" stroke-width="1.4"/>
+  <text x="480" y="108" text-anchor="middle" font-size="11" fill="#5ed3d8">3</text>
+  <text x="500" y="109" font-size="13" font-weight="700" fill="#5ed3d8">metadata</text>
+  <path d="M476 128 L624 128" stroke="#30363d" stroke-width="1"/>
+  <g font-size="10.5" fill="#c9d1d9">
+    <text x="476" y="152">name · image · traits</text>
+    <text x="476" y="172">optional ai_soul block</text>
+    <text x="476" y="192">ERC-721 / OpenSea JSON</text>
+  </g>
+  <rect x="476" y="222" width="148" height="26" rx="6" fill="#0d1117" stroke="#30363d"/>
+  <text x="550" y="239" text-anchor="middle" font-size="10.5" fill="#8b949e">Type: metadata</text>
+
+  <!-- 4 mint link -->
+  <rect x="675" y="76" width="180" height="196" rx="12" fill="#161b22" stroke="#30363d"/>
+  <circle cx="695" cy="104" r="11" fill="none" stroke="#6fb7d9" stroke-width="1.4"/>
+  <text x="695" y="108" text-anchor="middle" font-size="11" fill="#6fb7d9">4</text>
+  <text x="715" y="109" font-size="13" font-weight="700" fill="#6fb7d9">mint link</text>
+  <path d="M691 128 L839 128" stroke="#30363d" stroke-width="1"/>
+  <g font-size="10.5" fill="#c9d1d9">
+    <text x="691" y="152">gateway.irys.xyz/:id</text>
+    <text x="691" y="172">/mutable/:id twin</text>
+    <text x="691" y="192">copied from the Vault</text>
+  </g>
+  <rect x="691" y="222" width="148" height="26" rx="6" fill="#0d1117" stroke="#30363d"/>
+  <text x="765" y="239" text-anchor="middle" font-size="10.5" fill="#8b949e">ERC-721 tokenURI</text>
+
+  <!-- 5 mint on Base -->
+  <rect x="890" y="76" width="180" height="196" rx="12" fill="#161b22" stroke="#30363d"/>
+  <circle cx="910" cy="104" r="11" fill="none" stroke="#6ea8ff" stroke-width="1.4"/>
+  <text x="910" y="108" text-anchor="middle" font-size="11" fill="#6ea8ff">5</text>
+  <text x="930" y="109" font-size="13" font-weight="700" fill="#6ea8ff">mint on Base</text>
+  <path d="M906 128 L1054 128" stroke="#30363d" stroke-width="1"/>
+  <g font-size="10.5" fill="#c9d1d9">
+    <text x="906" y="152">mint(to, tokenURI)</text>
+    <text x="906" y="172">tokenId starts at 1</text>
+    <text x="906" y="192">ERC-2981 · ERC-6551</text>
+  </g>
+  <rect x="906" y="222" width="148" height="26" rx="6" fill="#0d1117" stroke="#30363d"/>
+  <text x="980" y="239" text-anchor="middle" font-size="10.5" fill="#8b949e">chainId 8453</text>
+
+  <g stroke="#566070" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M216 174 L239 174"/><path d="M233 168 L239 174 L233 180"/>
+    <path d="M431 174 L454 174"/><path d="M448 168 L454 174 L448 180"/>
+    <path d="M646 174 L669 174"/><path d="M663 168 L669 174 L663 180"/>
+    <path d="M861 174 L884 174"/><path d="M878 168 L884 174 L878 180"/>
+  </g>
+
+  <rect x="30" y="296" width="1040" height="76" rx="12" fill="#161b22" stroke="#30363d"/>
+  <rect x="30" y="296" width="3" height="76" rx="1.5" fill="#5ed3d8" opacity="0.8"/>
+  <g font-size="11.5">
+    <text x="50" y="324" fill="#c9d1d9">price: getPrice(bytes) per seal</text>
+    <text x="50" y="350" fill="#8b949e">signed by your Base wallet</text>
+    <text x="395" y="324" fill="#c9d1d9">free: anything under 100 KiB</text>
+    <text x="395" y="350" fill="#8b949e">setTokenURI(id, uri) re-points later</text>
+    <text x="742" y="324" fill="#c9d1d9">funding: ensureFunded() tops up</text>
+    <text x="742" y="350" fill="#8b949e">no server key in the wallet path</text>
+  </g>
+
+  <text x="550" y="400" text-anchor="middle" font-size="13" fill="#8b949e">three seals produce one permanent link — the token only stores that link</text>
+</svg>

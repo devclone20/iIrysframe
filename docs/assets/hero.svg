@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 420" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14">
+  <defs>
+    <linearGradient id="accentline" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#5ed3d8" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#5ed3d8" stop-opacity="0.1"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1400" height="420" rx="14" fill="#0d1117"/>
+  <rect x="1.5" y="1.5" width="1397" height="417" rx="13" fill="none" stroke="#30363d" stroke-width="3"/>
+  <rect x="0" y="412" width="1400" height="4" fill="url(#accentline)" opacity="0.9"/>
+
+  <circle cx="28" cy="26" r="6" fill="#ff5f57"/>
+  <circle cx="50" cy="26" r="6" fill="#febc2e"/>
+  <circle cx="72" cy="26" r="6" fill="#28c840"/>
+
+  <g stroke="#5ed3d8" fill="none" stroke-width="1.6" stroke-linecap="round">
+    <rect x="101.5" y="13.5" width="19" height="18" rx="5.5"/>
+    <circle cx="111" cy="19.6" r="2.2"/>
+    <path d="M111 21.8 L111 26.6"/>
+  </g>
+
+  <text x="700" y="31" text-anchor="middle" font-size="13" fill="#8b949e">permanent nft layer vault — sealed on irys, minted on base</text>
+
+  <text x="64" y="152" font-size="68" font-weight="700" fill="#e6edf3">iIrys<tspan fill="#5ed3d8"> Frame</tspan></text>
+  <rect x="66" y="172" width="118" height="3" rx="1.5" fill="#5ed3d8" opacity="0.85"/>
+
+  <text x="64" y="208" font-size="16" fill="#c9d1d9">the visible control surface for a permanent NFT layer vault on Irys</text>
+  <text x="64" y="246" font-size="13" fill="#8b949e">seal the ordered layers, the composed final and the ERC-721 metadata JSON,</text>
+  <text x="64" y="268" font-size="13" fill="#8b949e">then mint that sealed tokenURI on Base — the token carries the permanent link.</text>
+  <text x="64" y="292" font-size="12.5" fill="#566070">wallet studio · Foundry contracts · Irys CLI · headless automation API</text>
+
+  <g font-size="12">
+    <rect x="64" y="330" width="142" height="32" rx="16" fill="#161b22" stroke="#30363d"/>
+    <text x="135" y="351" text-anchor="middle" fill="#c9d1d9">Solidity 0.8.28</text>
+    <rect x="220" y="330" width="84" height="32" rx="16" fill="#161b22" stroke="#30363d"/>
+    <text x="262" y="351" text-anchor="middle" fill="#c9d1d9">Foundry</text>
+    <rect x="318" y="330" width="120" height="32" rx="16" fill="#161b22" stroke="#30363d"/>
+    <text x="378" y="351" text-anchor="middle" fill="#c9d1d9">React + Vite</text>
+    <rect x="452" y="330" width="113" height="32" rx="16" fill="#161b22" stroke="#30363d"/>
+    <text x="508" y="351" text-anchor="middle" fill="#5ed3d8">Irys × Base</text>
+    <rect x="579" y="330" width="113" height="32" rx="16" fill="#161b22" stroke="#30363d"/>
+    <text x="635" y="351" text-anchor="middle" fill="#c9d1d9">MIT licence</text>
+  </g>
+
+  <rect x="880" y="86" width="456" height="250" rx="12" fill="#161b22" stroke="#30363d"/>
+  <rect x="880" y="86" width="3" height="250" rx="1.5" fill="#5ed3d8" opacity="0.8"/>
+  <text x="902" y="116" font-size="12" fill="#8b949e">the loop</text>
+
+  <g font-size="12.5">
+    <text x="902" y="150" fill="#5ed3d8">1</text><text x="926" y="150" fill="#c9d1d9">seal the layers and the final image</text>
+    <text x="902" y="178" fill="#5ed3d8">2</text><text x="926" y="178" fill="#c9d1d9">seal the ERC-721 metadata JSON</text>
+    <text x="902" y="206" fill="#5ed3d8">3</text><text x="926" y="206" fill="#c9d1d9">copy the mint link (tokenURI)</text>
+    <text x="902" y="234" fill="#5ed3d8">4</text><text x="926" y="234" fill="#c9d1d9">mint(to, tokenURI) on Base 8453</text>
+    <text x="902" y="262" fill="#5ed3d8">5</text><text x="926" y="262" fill="#c9d1d9">ERC-2981 royalty + ERC-6551 wallet</text>
+  </g>
+
+  <path d="M902 286 L1314 286" stroke="#30363d" stroke-width="1"/>
+  <text x="902" y="312" font-size="11" fill="#566070">under 100 KiB is free · paid in Base ETH beyond that</text>
+</svg>
