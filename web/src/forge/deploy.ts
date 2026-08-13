@@ -5,8 +5,24 @@
 
 import { ethers } from "ethers";
 import artifact from "./CloneForgeArtifact.json";
-import { BASE, type Eip1193Provider } from "../config";
+import { BASE, chainInfo, type Eip1193Provider } from "../config";
 import type { DropConfig } from "./forgeStore";
+
+/**
+ * Fee overrides for the target chain. Robinhood Chain (Nitro) runs EIP-1559
+ * with a ZERO tip market — ethers' default adds a 1-gwei priority fee, which
+ * on a ~0.045-gwei baseFee would overpay ~20×. So on 4663 we pin the tip to 0
+ * and cap maxFee at 2× baseFee (headroom for drift). Base keeps ethers'
+ * defaults. Gas LIMIT is never hardcoded anywhere: Nitro's estimateGas folds
+ * the L1 posting cost into the estimate and ethers already uses it.
+ */
+async function feeOverrides(bp: ethers.BrowserProvider | ethers.JsonRpcProvider, chainId: number) {
+  if (chainId === BASE.id) return {};
+  const block = await bp.getBlock("latest");
+  const base = block?.baseFeePerGas ?? null;
+  if (base == null) return {};
+  return { maxPriorityFeePerGas: 0n, maxFeePerGas: base * 2n };
+}
 
 /** Canonical ERC-6551 registry + the Tokenbound implementation used by ICloneAgent. */
 export const ERC6551_REGISTRY = "0x000000006551c19487814612e58FE06813775758";
@@ -57,28 +73,42 @@ export interface DeployOut {
   txHash: string;
 }
 
-export async function deployCloneForge(provider: Eip1193Provider, params: ForgeDeployParams): Promise<DeployOut> {
+export async function deployCloneForge(
+  provider: Eip1193Provider,
+  params: ForgeDeployParams,
+  chainId: number = BASE.id,
+): Promise<DeployOut> {
+  const chain = chainInfo(chainId);
   const bp = new ethers.BrowserProvider(provider as any);
   const net = await bp.getNetwork();
-  if (Number(net.chainId) !== BASE.id) throw new Error("Switch the wallet to Base first");
+  if (Number(net.chainId) !== chain.id) throw new Error(`Switch the wallet to ${chain.name} first`);
   const signer = await bp.getSigner();
   const owner = await signer.getAddress();
 
   const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, signer);
-  const contract = await factory.deploy(toConfigStruct(owner, params));
+  const overrides = await feeOverrides(bp, chain.id);
+  const contract = await factory.deploy(toConfigStruct(owner, params), overrides);
   const tx = contract.deploymentTransaction();
   await contract.waitForDeployment();
   return { address: await contract.getAddress(), txHash: tx?.hash ?? "" };
 }
 
-/** Gas estimate in ETH for the deploy (so the user sees the cost up front). */
-export async function estimateDeployEth(provider: Eip1193Provider, params: ForgeDeployParams): Promise<string> {
+/** Gas estimate in ETH for the deploy (so the user sees the cost up front).
+ *  Estimates against the target chain's own RPC, so it works no matter which
+ *  chain the wallet is currently on. */
+export async function estimateDeployEth(
+  provider: Eip1193Provider,
+  params: ForgeDeployParams,
+  chainId: number = BASE.id,
+): Promise<string> {
+  const chain = chainInfo(chainId);
   const bp = new ethers.BrowserProvider(provider as any);
   const signer = await bp.getSigner();
   const owner = await signer.getAddress();
   const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, signer);
   const txReq = await factory.getDeployTransaction(toConfigStruct(owner, params));
-  const [gas, fee] = await Promise.all([bp.estimateGas({ ...txReq, from: owner }), bp.getFeeData()]);
+  const rp = new ethers.JsonRpcProvider(chain.rpc);
+  const [gas, fee] = await Promise.all([rp.estimateGas({ ...txReq, from: owner }), rp.getFeeData()]);
   const price = fee.maxFeePerGas ?? fee.gasPrice ?? 0n;
   return ethers.formatEther(gas * price);
 }
@@ -135,8 +165,8 @@ export interface ContractState {
   royaltySplit: string | null;
 }
 
-export async function readContractState(address: string): Promise<ContractState> {
-  const rpc = new ethers.JsonRpcProvider(BASE.rpc);
+export async function readContractState(address: string, chainId: number = BASE.id): Promise<ContractState> {
+  const rpc = new ethers.JsonRpcProvider(chainInfo(chainId).rpc);
   const c = new ethers.Contract(address, READ_ABI, rpc);
   const grab = async <T>(fn: () => Promise<T>): Promise<T | null> => {
     try {
@@ -196,11 +226,22 @@ export type AdminAction =
   | { fn: "withdraw"; args: [string] }
   | { fn: "withdrawDev"; args: [] };
 
-export async function adminCall(provider: Eip1193Provider, address: string, action: AdminAction): Promise<string> {
+export async function adminCall(
+  provider: Eip1193Provider,
+  address: string,
+  action: AdminAction,
+  chainId: number = BASE.id,
+): Promise<string> {
+  const chain = chainInfo(chainId);
   const bp = new ethers.BrowserProvider(provider as any);
+  const net = await bp.getNetwork();
+  // Admin txs must land on the contract's own chain — a wallet left on another
+  // chain would send the call to whatever lives at this address over there.
+  if (Number(net.chainId) !== chain.id) throw new Error(`Switch the wallet to ${chain.name} first`);
   const signer = await bp.getSigner();
   const c = new ethers.Contract(address, ADMIN_ABI, signer);
-  const tx = await (c as any)[action.fn](...action.args);
+  const overrides = await feeOverrides(bp, chain.id);
+  const tx = await (c as any)[action.fn](...action.args, overrides);
   await tx.wait();
   return tx.hash as string;
 }

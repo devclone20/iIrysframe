@@ -526,7 +526,28 @@ main { padding:0 clamp(14px,3vw,32px) 80px; max-width:1320px; margin:0 auto; }
 .wp__net>span { color:var(--text-2); }
 .wp__net strong { color:var(--base); font-family:var(--mono); font-weight:500; }
 .wp__net.is-wrong { background:var(--surface-2); border-color:var(--line-2); }
-.wp__bals { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+.wp__bals { display:grid; grid-template-columns:1fr; gap:10px; margin-bottom:12px; }
+
+/* Multi-chain asset balances — compact rows, one per asset, "+" opens the manager. */
+.wp__assets { background:var(--bg-2); border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:12px; }
+.wp__assets-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+.wp__assets-head>span { font-size:.66rem; text-transform:uppercase; letter-spacing:.08em; color:var(--text-3); }
+.wp__assets-add { width:20px; height:20px; display:grid; place-items:center; border:1px solid var(--line);
+  border-radius:6px; background:transparent; color:var(--text-2); font-size:.85rem; line-height:1; cursor:pointer; }
+.wp__assets-add:hover { color:var(--text-1); border-color:var(--text-3); }
+.wp__assets-mgr { display:flex; flex-direction:column; gap:4px; padding:6px 0 8px; border-bottom:1px solid var(--line); margin-bottom:6px; }
+.wp__assets-opt { display:flex; align-items:center; gap:7px; font-size:.74rem; color:var(--text-2); cursor:pointer; }
+.wp__assets-opt input { accent-color:var(--accent, #fff); }
+.wp__assets-opt em { font-style:normal; color:var(--text-3); }
+.wp__assets-list { display:flex; flex-direction:column; }
+.wp__asset { display:grid; grid-template-columns:52px 1fr auto; align-items:baseline; gap:8px; padding:4px 0; }
+.wp__asset + .wp__asset { border-top:1px solid color-mix(in srgb, var(--line) 55%, transparent); }
+.wp__asset-sym { font-size:.74rem; font-weight:600; letter-spacing:.02em; }
+.wp__asset-chain { font-size:.66rem; color:var(--text-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.wp__asset-val { text-align:right; display:flex; flex-direction:column; align-items:flex-end; }
+.wp__asset-val strong { font-size:.8rem; font-family:var(--mono); font-weight:600; }
+.wp__asset-val em { font-size:.62rem; color:var(--text-2); font-style:normal; font-family:var(--mono); }
+.wp__assets-empty { font-size:.72rem; color:var(--text-3); padding:4px 0; }
 .wp__bal { background:var(--bg-2); border:1px solid var(--line); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:2px; }
 .wp__bal>span { font-size:.66rem; text-transform:uppercase; letter-spacing:.08em; color:var(--text-3); }
 .wp__bal strong { font-size:1.15rem; font-family:var(--mono); font-weight:600; }
@@ -1186,3 +1207,35 @@ input[type=range] { accent-color:var(--accent); width:100%; }
   text-decoration:underline; text-underline-offset:3px; }
 .soul-safety { margin-top:18px; font-size:.74rem; color:var(--text-3); line-height:1.6; }
 .soul-safety b { color:var(--text-2); }
+
+/* ── Irys Base — the meta-base tab: balances + one folder per published set ── */
+.ib__head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:14px; }
+.ib__title h3 { margin:0 0 4px; }
+.ib__title p { margin:0; font-size:.8rem; color:var(--text-2); max-width:560px; }
+.ib__bals { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:16px; }
+.ib__bal { background:var(--bg-2); border:1px solid var(--line); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:2px; }
+.ib__bal>span:first-child { font-size:.66rem; text-transform:uppercase; letter-spacing:.08em; color:var(--text-3); }
+.ib__bal strong { font-size:1.2rem; font-family:var(--mono); font-weight:600; }
+.ib__bal em { font-size:.62rem; color:var(--text-3); font-style:normal; }
+.ib__bal-usd { font-size:.72rem; color:var(--text-2); font-family:var(--mono); }
+.ib__folders { display:flex; flex-direction:column; gap:8px; }
+.ib__folder { padding:0; overflow:hidden; }
+.ib__folder-head { display:grid; grid-template-columns:auto 1fr auto auto; align-items:center; gap:10px;
+  width:100%; padding:12px 14px; background:transparent; border:0; cursor:pointer; color:var(--text-1); text-align:left; }
+.ib__folder-head:hover { background:color-mix(in srgb, var(--bg-2) 60%, transparent); }
+.ib__folder-icon { color:var(--text-3); display:grid; place-items:center; }
+.ib__folder-name { font-weight:600; font-size:.86rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ib__folder-count { font-size:.7rem; color:var(--text-3); white-space:nowrap; }
+.ib__folder-count em { font-style:normal; color:var(--text-2); }
+.ib__folder-caret { color:var(--text-3); font-size:.7rem; }
+.ib__folder-body { border-top:1px solid var(--line); padding:6px 14px 10px; display:flex; flex-direction:column; }
+.ib__item { display:flex; align-items:baseline; justify-content:space-between; gap:12px; padding:6px 0; }
+.ib__item + .ib__item { border-top:1px solid color-mix(in srgb, var(--line) 55%, transparent); }
+.ib__item-name { font-size:.78rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ib__item-meta { display:flex; align-items:baseline; gap:10px; font-size:.68rem; color:var(--text-3); white-space:nowrap; }
+.ib__item-meta em { font-style:normal; }
+.ib__item-meta a { color:var(--text-2); text-decoration:none; border-bottom:1px solid var(--line); }
+.ib__item-meta a:hover { color:var(--text-1); }
+.ib__chip { border:1px solid var(--line); border-radius:99px; padding:1px 7px; font-size:.6rem; text-transform:uppercase; letter-spacing:.06em; }
+.ib__empty-panel { padding:22px; }
+.ib__empty-panel p { margin:6px 0 0; color:var(--text-2); font-size:.82rem; }

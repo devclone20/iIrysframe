@@ -3,7 +3,7 @@
 // pattern as profile.ts) so both tabs stay in sync without prop drilling.
 
 import { useEffect, useState } from "react";
-import { TIERS } from "../config";
+import { BASE, TIERS } from "../config";
 
 // ── batch (a 3D collection loaded in the 3D NFT tab) ─────────────────────────
 export type BatchStatus = "queued" | "processing" | "ready" | "sealing" | "sealed" | "error";
@@ -72,6 +72,7 @@ interface ForgeState {
   deployed: DeployedContract[];
   active: string | null; // active contract address (mint target)
   dropManifestUri: string | null; // sealed drop manifest baseURI (gateway/{id}/)
+  editionsByMeta: Record<string, number>; // per-item mint limit (metadataId → editions)
 }
 
 const KEY = "iirys.forge.v1";
@@ -103,7 +104,7 @@ const DEFAULT_PROFILE: CollectionProfile = {
   imageUrl: "",
 };
 
-function loadPersisted(): Pick<ForgeState, "drop" | "profile" | "deployed" | "active" | "dropManifestUri"> {
+function loadPersisted(): Pick<ForgeState, "drop" | "profile" | "deployed" | "active" | "dropManifestUri" | "editionsByMeta"> {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? "null");
     if (raw && typeof raw === "object") {
@@ -113,12 +114,13 @@ function loadPersisted(): Pick<ForgeState, "drop" | "profile" | "deployed" | "ac
         deployed: Array.isArray(raw.deployed) ? raw.deployed : [],
         active: typeof raw.active === "string" ? raw.active : null,
         dropManifestUri: typeof raw.dropManifestUri === "string" ? raw.dropManifestUri : null,
+        editionsByMeta: raw.editionsByMeta && typeof raw.editionsByMeta === "object" ? raw.editionsByMeta : {},
       };
     }
   } catch {
     /* fresh start */
   }
-  return { drop: { ...DEFAULT_DROP }, profile: { ...DEFAULT_PROFILE }, deployed: [], active: null, dropManifestUri: null };
+  return { drop: { ...DEFAULT_DROP }, profile: { ...DEFAULT_PROFILE }, deployed: [], active: null, dropManifestUri: null, editionsByMeta: {} };
 }
 
 let state: ForgeState = { batch: [], ...loadPersisted() };
@@ -126,8 +128,8 @@ const subs = new Set<() => void>();
 
 function persist() {
   try {
-    const { drop, profile, deployed, active, dropManifestUri } = state;
-    localStorage.setItem(KEY, JSON.stringify({ drop, profile, deployed, active, dropManifestUri }));
+    const { drop, profile, deployed, active, dropManifestUri, editionsByMeta } = state;
+    localStorage.setItem(KEY, JSON.stringify({ drop, profile, deployed, active, dropManifestUri, editionsByMeta }));
   } catch {
     /* quota */
   }
@@ -205,6 +207,33 @@ export function activeMintContract(): string | null {
   if (state.active) return state.active;
   const env = (import.meta.env.VITE_MINT_CONTRACT as string | undefined)?.trim();
   return env || null;
+}
+
+/** Chain the active mint contract lives on (env/legacy contracts → Base). */
+export function activeMintChainId(): number {
+  const addr = activeMintContract()?.toLowerCase();
+  if (!addr) return BASE.id;
+  const row = state.deployed.find((d) => d.address.toLowerCase() === addr);
+  return row?.chainId ?? BASE.id;
+}
+
+// ── per-item editions (mint limit per sealed metadata) ───────────────────────
+/** Set how many times one sealed item may be minted. null/0 clears back to the
+ *  drop default (drop.editionsPerItem). */
+export function setItemEditions(metadataId: string, n: number | null) {
+  const editionsByMeta = { ...state.editionsByMeta };
+  if (n == null || !Number.isFinite(n) || n < 1) delete editionsByMeta[metadataId];
+  else editionsByMeta[metadataId] = Math.floor(n);
+  state = { ...state, editionsByMeta };
+  persist();
+  emit();
+}
+
+/** Effective mint limit for an item: its override, else the drop default (≥1). */
+export function itemEditionLimit(metadataId: string | undefined | null): number {
+  const set = metadataId ? state.editionsByMeta[metadataId] : undefined;
+  if (set != null && set >= 1) return Math.floor(set);
+  return Math.max(1, Math.floor(state.drop.editionsPerItem || 1));
 }
 
 // ── rarity auto-distribution ─────────────────────────────────────────────────

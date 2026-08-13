@@ -23,7 +23,7 @@ import { useWallet } from "../wallet";
 import { useStore } from "../store";
 import { usdOf, shortAddr } from "../format";
 import { toast, errMsg, confirmDialog } from "../ui";
-import { BASE } from "../config";
+import { BASE, DEPLOY_CHAINS, chainInfo } from "../config";
 import { StepUpload, StepProcess, StepSeal } from "./CreateSteps";
 
 export function Create({ goLaunch }: { goLaunch: () => void }) {
@@ -209,6 +209,11 @@ function StepContract() {
   const [csymbol, setCsymbol] = useState("INFT");
   const [estimate, setEstimate] = useState<string | null>(null);
   const [deploying, setDeploying] = useState(false);
+  // Deploy target: Base (default) or Robinhood Chain — same contract, same
+  // knobs; gas is paid in that chain's ETH. Recorded on the deployed entry so
+  // mint/admin always follow the contract home.
+  const [chainId, setChainId] = useState<number>(BASE.id);
+  const chain = chainInfo(chainId);
 
   const supplyAuto = wiz.items.length > 0 ? wiz.items.length * Math.max(1, drop.editionsPerItem) : 0;
   const effectiveMax = drop.supplyMode === "fixed" ? supplyAuto : drop.maxSupply;
@@ -219,14 +224,18 @@ function StepContract() {
       const provider = await w.getProvider();
       if (!provider) return toast("Connect the wallet first", "err");
       setEstimate("…");
-      const eth = await estimateDeployEth(provider, {
-        name: cname,
-        symbol: csymbol,
-        royaltyReceiver: w.address ?? "",
-        contractURI: forge.profile.sealedUri ?? "",
-        dropBaseURI: wiz.sealBaseURI ?? forge.dropManifestUri ?? "",
-        drop: { ...drop, maxSupply: effectiveMax },
-      });
+      const eth = await estimateDeployEth(
+        provider,
+        {
+          name: cname,
+          symbol: csymbol,
+          royaltyReceiver: w.address ?? "",
+          contractURI: forge.profile.sealedUri ?? "",
+          dropBaseURI: wiz.sealBaseURI ?? forge.dropManifestUri ?? "",
+          drop: { ...drop, maxSupply: effectiveMax },
+        },
+        chainId,
+      );
       setEstimate(Number.parseFloat(eth).toFixed(6));
     } catch (e) {
       setEstimate(null);
@@ -236,7 +245,13 @@ function StepContract() {
 
   async function deploy() {
     if (!w.connected) return toast("Connect your wallet first", "err");
-    if (!w.onBase) return toast("Switch to Base first", "err");
+    if (w.chainId !== chainId) {
+      try {
+        await w.switchTo(chainId);
+      } catch {
+        return toast(`Switch the wallet to ${chain.name} first`, "err");
+      }
+    }
     // Perpetual dev support is additive to the creator royalty; the contract caps
     // the sum at 10%. Guard here so the user never hits an on-chain revert.
     if (drop.devSupportMode === "perpetual" && drop.royaltyBps + drop.devBps > 1000) {
@@ -247,8 +262,8 @@ function StepContract() {
         ? ""
         : `, dev support <strong>${(drop.devBps / 100).toFixed(0)}% ${drop.devSupportMode === "first" ? "first-sale" : "perpetual"}</strong>`;
     const ok = await confirmDialog(
-      "Deploy your contract on Base",
-      `Deploy <strong>${cname}</strong> (${csymbol}): royalty <strong>${(drop.royaltyBps / 100).toFixed(1)}%</strong>${devLine}, supply <strong>${effectiveMax === 0 ? "unlimited" : effectiveMax}</strong>, public mint <strong>${drop.publicMint ? `ON · ${drop.priceEth || "0"} ETH` : "off"}</strong>${drop.ogGated ? ", OG-gated" : ""}. Gas paid from your wallet in Base ETH; live on Basescan immediately.`,
+      `Deploy your contract on ${chain.name}`,
+      `Deploy <strong>${cname}</strong> (${csymbol}): royalty <strong>${(drop.royaltyBps / 100).toFixed(1)}%</strong>${devLine}, supply <strong>${effectiveMax === 0 ? "unlimited" : effectiveMax}</strong>, public mint <strong>${drop.publicMint ? `ON · ${drop.priceEth || "0"} ETH` : "off"}</strong>${drop.ogGated ? ", OG-gated" : ""}. Gas paid from your wallet in ETH on ${chain.name}; live on the explorer immediately.`,
       "Deploy",
     );
     if (!ok) return;
@@ -256,15 +271,19 @@ function StepContract() {
     try {
       const provider = await w.getProvider();
       if (!provider) throw new Error("Wallet provider unavailable");
-      const out = await deployCloneForge(provider, {
-        name: cname,
-        symbol: csymbol,
-        royaltyReceiver: w.address ?? "",
-        contractURI: forge.profile.sealedUri ?? "",
-        dropBaseURI: wiz.sealBaseURI ?? forge.dropManifestUri ?? "",
-        drop: { ...drop, maxSupply: effectiveMax },
-      });
-      addDeployed({ address: out.address, name: cname, symbol: csymbol, txHash: out.txHash, chainId: BASE.id, at: Date.now() });
+      const out = await deployCloneForge(
+        provider,
+        {
+          name: cname,
+          symbol: csymbol,
+          royaltyReceiver: w.address ?? "",
+          contractURI: forge.profile.sealedUri ?? "",
+          dropBaseURI: wiz.sealBaseURI ?? forge.dropManifestUri ?? "",
+          drop: { ...drop, maxSupply: effectiveMax },
+        },
+        chainId,
+      );
+      addDeployed({ address: out.address, name: cname, symbol: csymbol, txHash: out.txHash, chainId, at: Date.now() });
       patchWizard({ contractSkipped: false });
       toast(`Deployed — ${out.address.slice(0, 10)}…`, "ok");
     } catch (e) {
@@ -288,7 +307,13 @@ function StepContract() {
       <div className="form">
         <div className="field">
           <label>Network</label>
-          <input value="Base (8453) · ETH" readOnly />
+          <select value={chainId} onChange={(e) => { setChainId(Number(e.target.value)); setEstimate(null); }}>
+            {Object.values(DEPLOY_CHAINS).map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} ({c.id}) · {c.symbol}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="field">
           <label>Royalty (%) <em>ERC-2981, perpetual</em></label>

@@ -16,6 +16,8 @@ export interface WalletState {
   logout: () => void | Promise<void>;
   getProvider: () => Promise<Eip1193Provider | null>;
   switchToBase: () => Promise<void>;
+  /** Switch the wallet to any supported chain (Base 8453, Robinhood 4663). */
+  switchTo: (chainId: number) => Promise<void>;
 }
 
 const STUB: WalletState = {
@@ -31,6 +33,7 @@ const STUB: WalletState = {
   logout: () => {},
   getProvider: async () => null,
   switchToBase: async () => {},
+  switchTo: async () => {},
 };
 
 const WalletContext = createContext<WalletState>(STUB);
@@ -67,6 +70,9 @@ export function PrivyWalletProvider({ children }: { children: ReactNode }) {
       getProvider: async () => (active ? ((await active.getEthereumProvider()) as Eip1193Provider) : null),
       switchToBase: async () => {
         if (active) await active.switchChain(BASE.id);
+      },
+      switchTo: async (chainId: number) => {
+        if (active) await active.switchChain(chainId);
       },
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

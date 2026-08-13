@@ -9,7 +9,7 @@
 // point the token's URI at it via setTokenURI — the owner can always re-point.
 
 import { ethers } from "ethers";
-import { GATEWAY, BASE, type Eip1193Provider } from "../config";
+import { GATEWAY, BASE, chainInfo, type Eip1193Provider } from "../config";
 
 const CDN_SUFFIX = "mainnet-1.datasprite-cdn.com";
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -120,10 +120,11 @@ export async function repairMetadataJson(meta: Record<string, unknown>): Promise
 // ── minted-token mapping + setTokenURI ────────────────────────────────────────
 /** Public RPCs rate-limit bursts ("missing revert data"). Rotate + retry. */
 const RPCS = [BASE.rpc, "https://base-rpc.publicnode.com", "https://base.llamarpc.com", "https://1rpc.io/base"];
-async function readWithRetry<T>(fn: (c: ethers.Contract) => Promise<T>, contract: string): Promise<T> {
+const rpcsFor = (chainId: number): string[] => (chainId === BASE.id ? RPCS : [chainInfo(chainId).rpc]);
+async function readWithRetry<T>(fn: (c: ethers.Contract) => Promise<T>, contract: string, chainId: number = BASE.id): Promise<T> {
   let lastErr: unknown;
   for (let round = 0; round < 2; round++) {
-    for (const rpc of RPCS) {
+    for (const rpc of rpcsFor(chainId)) {
       try {
         const c = new ethers.Contract(contract, ABI, new ethers.JsonRpcProvider(rpc));
         return await fn(c);
@@ -157,11 +158,11 @@ async function lineageIncludes(txId: string, ancestor: string): Promise<boolean>
 
 /** ALL minted tokenIds that point at a given metadata tx — directly, via the
  *  repair lineage, or by metadata NAME (duplicate mints of the same item). */
-export async function findTokensForMetadata(contract: string, metadataId: string): Promise<number[]> {
-  const total = Number(await readWithRetry((c) => c.totalMinted!(), contract));
+export async function findTokensForMetadata(contract: string, metadataId: string, chainId: number = BASE.id): Promise<number[]> {
+  const total = Number(await readWithRetry((c) => c.totalMinted!(), contract, chainId));
   const uris: (string | null)[] = [];
   for (let id = 1; id <= total; id++) {
-    uris[id] = await readWithRetry((c) => c.tokenURI!(id) as Promise<string>, contract).catch(() => null);
+    uris[id] = await readWithRetry((c) => c.tokenURI!(id) as Promise<string>, contract, chainId).catch(() => null);
   }
   const found = new Set<number>();
   for (let id = 1; id <= total; id++) {
@@ -189,6 +190,27 @@ export async function findTokensForMetadata(contract: string, metadataId: string
     /* best effort */
   }
   return [...found].sort((a, b) => a - b);
+}
+
+// ── minted-count cache (per-item edition guard) ──────────────────────────────
+const COUNT_TTL = 60_000;
+const countCache = new Map<string, { count: number; at: number }>();
+const countKey = (contract: string, metadataId: string, chainId: number) => `${chainId}:${contract.toLowerCase()}:${metadataId}`;
+
+/** How many tokens are minted from this metadata (on-chain scan, 60s cache). */
+export async function mintedCountFor(contract: string, metadataId: string, chainId: number = BASE.id): Promise<number> {
+  const key = countKey(contract, metadataId, chainId);
+  const hit = countCache.get(key);
+  if (hit && Date.now() - hit.at < COUNT_TTL) return hit.count;
+  const count = (await findTokensForMetadata(contract, metadataId, chainId)).length;
+  countCache.set(key, { count, at: Date.now() });
+  return count;
+}
+
+/** Drop the cached count after a successful mint (any chain). */
+export function invalidateMintedCount(contract: string, metadataId: string) {
+  const suffix = `:${contract.toLowerCase()}:${metadataId}`;
+  for (const k of [...countCache.keys()]) if (k.endsWith(suffix)) countCache.delete(k);
 }
 
 /** First match (kept for single-token flows). */

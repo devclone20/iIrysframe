@@ -18,6 +18,39 @@ export const BASE = {
   symbol: "ETH",
 } as const;
 
+// Robinhood Chain — Arbitrum Nitro L2, gas in ETH. The app layer is
+// permissionless (anyone can deploy); there is no first-party CLI and the
+// public RPC serves browsers directly (CORS *). Nitro quirk that matters for
+// txs: the fee market is EIP-1559 with a ZERO tip — ethers' default 1-gwei
+// priority fee would overpay ~20×, so senders pass explicit fee overrides.
+export const ROBINHOOD = {
+  id: 4663,
+  hex: "0x1237",
+  name: "Robinhood Chain",
+  rpc: "https://rpc.mainnet.chain.robinhood.com",
+  explorer: "https://robinhoodchain.blockscout.com",
+  symbol: "ETH",
+} as const;
+
+export interface ChainInfo {
+  id: number;
+  hex: string;
+  name: string;
+  rpc: string;
+  explorer: string;
+  symbol: string;
+}
+
+/** Chains a CloneForge contract can live on. Base stays the default. */
+export const DEPLOY_CHAINS: Record<number, ChainInfo> = {
+  [BASE.id]: BASE,
+  [ROBINHOOD.id]: ROBINHOOD,
+};
+
+export function chainInfo(id?: number | null): ChainInfo {
+  return DEPLOY_CHAINS[id ?? BASE.id] ?? BASE;
+}
+
 export const TIERS = ["rare", "superrare", "iclone"] as const;
 export type Tier = (typeof TIERS)[number];
 

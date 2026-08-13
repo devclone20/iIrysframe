@@ -9,11 +9,13 @@ import { fund, withdrawAll } from "../irys";
 import { useProfile } from "../profile";
 import { UserGlyph } from "./Settings";
 import { openAssistant, openSettings } from "../panels";
+import { ASSETS } from "../assets";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "create", label: "Create" },
   { key: "launch", label: "Launch" },
   { key: "vault", label: "Vault" },
+  { key: "irysbase", label: "Irys Base" },
   { key: "agent", label: "Agent" },
   { key: "swap", label: "Swap" },
   { key: "soulupdate", label: "Soul Update" },
@@ -99,6 +101,7 @@ function WalletPanel({ onClose }: { onClose: () => void }) {
   const store = useStore();
   const profile = useProfile();
   const [amount, setAmount] = useState("");
+  const [showAssetMgr, setShowAssetMgr] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -224,16 +227,52 @@ function WalletPanel({ onClose }: { onClose: () => void }) {
 
         <div className="wp__bals">
           <div className="wp__bal">
-            <span>Base wallet</span>
-            <strong>{fmtEth(store.baseEth)}</strong>
-            <em>ETH</em>
-            {usdOf(store.baseEth, store.ethUsd) && <span className="wp__bal-usd">≈ {usdOf(store.baseEth, store.ethUsd)}</span>}
-          </div>
-          <div className="wp__bal">
             <span>Irys credit</span>
             <strong>{fmtEth(store.nodeEth)}</strong>
             <em>storage</em>
             {usdOf(store.nodeEth, store.ethUsd) && <span className="wp__bal-usd">≈ {usdOf(store.nodeEth, store.ethUsd)}</span>}
+          </div>
+        </div>
+
+        <div className="wp__assets">
+          <div className="wp__assets-head">
+            <span>Assets{store.assetsLoading ? " · syncing…" : ""}</span>
+            <button
+              className="wp__assets-add"
+              title="Show more assets"
+              onClick={() => setShowAssetMgr((v) => !v)}
+            >
+              {showAssetMgr ? "×" : "+"}
+            </button>
+          </div>
+          {showAssetMgr && (
+            <div className="wp__assets-mgr">
+              {ASSETS.filter((a) => a.optional).map((a) => (
+                <label key={a.id} className="wp__assets-opt">
+                  <input
+                    type="checkbox"
+                    checked={store.assetPrefs.has(a.id)}
+                    onChange={(e) => store.toggleAsset(a.id, e.target.checked)}
+                  />
+                  <span>
+                    {a.symbol} <em>· {a.chain}</em>
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+          <div className="wp__assets-list">
+            {store.assets.map((a) => (
+              <div key={a.def.id} className="wp__asset">
+                <span className="wp__asset-sym">{a.def.symbol}</span>
+                <span className="wp__asset-chain">{a.def.chain}</span>
+                <span className="wp__asset-val">
+                  <strong>{a.display}</strong>
+                  {a.usd != null && a.usd >= 0.01 && <em>≈ {fmtUsd(a.usd)}</em>}
+                </span>
+              </div>
+            ))}
+            {store.assets.length === 0 && !store.assetsLoading && <div className="wp__assets-empty">Connect to load balances</div>}
           </div>
         </div>
 

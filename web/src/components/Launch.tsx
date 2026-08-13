@@ -1,33 +1,45 @@
 import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import { useWizard } from "../wizard/wizardStore";
-import { useForge, patchProfile } from "../forge/forgeStore";
+import { useForge, patchProfile, itemEditionLimit } from "../forge/forgeStore";
 import { readContractState, adminCall, parseEthOrZero, type ContractState } from "../forge/deploy";
 import { useWallet } from "../wallet";
 import { useStore } from "../store";
 import { uploadData } from "../irys";
 import { toast, errMsg, confirmDialog, CopyField } from "../ui";
-import { BASE, type Tag, type Eip1193Provider } from "../config";
+import { BASE, chainInfo, type Tag, type Eip1193Provider } from "../config";
+import { feeOverridesFor } from "../mint";
 
 const MINT_ABI = [
   "function mint(address to, string uri) payable returns (uint256)",
   "function mintDrop(uint256 quantity) payable",
 ];
 
-async function ownerMint(provider: Eip1193Provider, contract: string, to: string, uri: string): Promise<string> {
+/** Irys tx id of a sealed metadata URL (last path segment survives /mutable/). */
+const metaIdOf = (url: string): string => url.replace(/[?#].*$/, "").split("/").filter(Boolean).pop() ?? url;
+
+async function ownerMint(provider: Eip1193Provider, contract: string, to: string, uri: string, chainId: number): Promise<string> {
+  const chain = chainInfo(chainId);
   const bp = new ethers.BrowserProvider(provider as any);
+  const net = await bp.getNetwork();
+  if (Number(net.chainId) !== chain.id) throw new Error(`Switch the wallet to ${chain.name} first`);
   const signer = await bp.getSigner();
   const c = new ethers.Contract(contract, MINT_ABI, signer);
-  const tx = await (c as any).mint(to, uri);
+  const overrides = await feeOverridesFor(bp, chain.id);
+  const tx = await (c as any).mint(to, uri, overrides);
   await tx.wait();
   return tx.hash as string;
 }
 
-async function ownerMintDrop(provider: Eip1193Provider, contract: string, qty: number): Promise<string> {
+async function ownerMintDrop(provider: Eip1193Provider, contract: string, qty: number, chainId: number): Promise<string> {
+  const chain = chainInfo(chainId);
   const bp = new ethers.BrowserProvider(provider as any);
+  const net = await bp.getNetwork();
+  if (Number(net.chainId) !== chain.id) throw new Error(`Switch the wallet to ${chain.name} first`);
   const signer = await bp.getSigner();
   const c = new ethers.Contract(contract, MINT_ABI, signer);
-  const tx = await (c as any).mintDrop(qty);
+  const overrides = await feeOverridesFor(bp, chain.id);
+  const tx = await (c as any).mintDrop(qty, overrides);
   await tx.wait();
   return tx.hash as string;
 }
@@ -40,25 +52,63 @@ export function Launch({ goCreate }: { goCreate: () => void }) {
 
   const sealed = wiz.items.filter((i) => i.status === "sealed" && i.sealed);
   const contract = forge.active ?? forge.deployed[0]?.address ?? (import.meta.env.VITE_MINT_CONTRACT as string | undefined)?.trim() ?? null;
+  const chainId = forge.deployed.find((d) => d.address.toLowerCase() === contract?.toLowerCase())?.chainId ?? BASE.id;
+  const chain = chainInfo(chainId);
   const [state, setState] = useState<ContractState | null>(null);
   const [minting, setMinting] = useState(false);
   const [mintStep, setMintStep] = useState("");
+  const [counts, setCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!contract) return;
-    readContractState(contract).then(setState).catch(() => setState(null));
-  }, [contract, minting]);
+    readContractState(contract, chainId).then(setState).catch(() => setState(null));
+  }, [contract, chainId, minting]);
+
+  useEffect(() => {
+    if (!contract || sealed.length === 0 || minting) return;
+    let alive = true;
+    (async () => {
+      const { mintedCountFor } = await import("../forge/repair");
+      for (const it of sealed) {
+        if (!alive) return;
+        const metaId = metaIdOf(it.sealed!.metadata);
+        try {
+          const n = await mintedCountFor(contract, metaId, chainId);
+          if (alive) setCounts((c) => (c[metaId] === n ? c : { ...c, [metaId]: n }));
+        } catch {
+          /* fail open — the row keeps its Mint button */
+        }
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contract, chainId, minting, sealed.length]);
 
   const manifestWired = !!state?.dropBaseURI && !!wiz.sealBaseURI && state.dropBaseURI === wiz.sealBaseURI;
   const canDropMint = manifestWired && sealed.length > 0;
 
   async function refresh() {
-    if (contract) setState(await readContractState(contract).catch(() => null));
+    if (contract) setState(await readContractState(contract, chainId).catch(() => null));
+  }
+
+  /** Put the wallet on the contract's chain before any tx. */
+  async function ensureChain(): Promise<boolean> {
+    if (w.chainId === chainId) return true;
+    try {
+      await w.switchTo(chainId);
+      return true;
+    } catch {
+      toast(`Couldn't switch the wallet to ${chain.name} — switch it manually and retry`, "err");
+      return false;
+    }
   }
 
   async function mintAll() {
     if (!contract) return toast("Deploy a contract first (Create → Contract)", "err");
     if (!w.connected || !w.address) return toast("Connect your wallet first", "err");
+    if (!(await ensureChain())) return;
     const provider = await w.getProvider();
     if (!provider) return toast("Wallet provider unavailable", "err");
 
@@ -72,7 +122,7 @@ export function Launch({ goCreate }: { goCreate: () => void }) {
       setMinting(true);
       try {
         setMintStep("Minting collection…");
-        const hash = await ownerMintDrop(provider, contract, sealed.length);
+        const hash = await ownerMintDrop(provider, contract, sealed.length, chainId);
         toast(`Collection minted — ${hash.slice(0, 14)}…`, "ok");
       } catch (e) {
         toast(`Mint failed: ${errMsg(e)}`, "err");
@@ -86,19 +136,34 @@ export function Launch({ goCreate }: { goCreate: () => void }) {
     // fallback: one tx per item (works on any contract with mint(address,string))
     const ok = await confirmDialog(
       "Mint the whole collection",
-      `Mint <strong>${sealed.length} items</strong> — one transaction per item (your wallet will ask ${sealed.length} times). Tip: wire the drop manifest below to mint everything in a single transaction instead.`,
+      `Mint <strong>${sealed.length} items</strong> — one transaction per item (your wallet will ask ${sealed.length} times). Items whose editions are already fully minted are skipped. Tip: wire the drop manifest below to mint everything in a single transaction instead.`,
       "Mint one by one",
     );
     if (!ok) return;
     setMinting(true);
     try {
+      const { mintedCountFor, invalidateMintedCount } = await import("../forge/repair");
       let done = 0;
+      let skipped = 0;
       for (const it of sealed) {
+        const metaId = metaIdOf(it.sealed!.metadata);
+        setMintStep(`Checking editions of ${it.name}…`);
+        let count: number | null = null;
+        try {
+          count = await mintedCountFor(contract, metaId, chainId);
+        } catch {
+          /* fail open — the limit is a guard, not consensus */
+        }
+        if (count != null && count >= itemEditionLimit(metaId)) {
+          skipped++;
+          continue;
+        }
         setMintStep(`Minting ${it.name} (${done + 1}/${sealed.length})…`);
-        await ownerMint(provider, contract, w.address, it.sealed!.metadata);
+        await ownerMint(provider, contract, w.address, it.sealed!.metadata, chainId);
+        invalidateMintedCount(contract, metaId);
         done++;
       }
-      toast(`Minted ${done}/${sealed.length}`, "ok");
+      toast(`Minted ${done}/${sealed.length}${skipped ? ` · skipped ${skipped} (editions exhausted)` : ""}`, "ok");
     } catch (e) {
       toast(`Stopped: ${errMsg(e)}`, "err");
     } finally {
@@ -111,12 +176,29 @@ export function Launch({ goCreate }: { goCreate: () => void }) {
   async function mintOne(uri: string, name: string) {
     if (!contract) return toast("Deploy a contract first", "err");
     if (!w.connected || !w.address) return toast("Connect your wallet first", "err");
+    if (!(await ensureChain())) return;
     const provider = await w.getProvider();
     if (!provider) return toast("Wallet provider unavailable", "err");
     setMinting(true);
     try {
+      const { mintedCountFor, invalidateMintedCount } = await import("../forge/repair");
+      const metaId = metaIdOf(uri);
+      const limit = itemEditionLimit(metaId);
+      setMintStep(`Checking editions of ${name}…`);
+      let count: number | null = null;
+      try {
+        count = await mintedCountFor(contract, metaId, chainId);
+      } catch {
+        toast("Edition check failed — minting anyway", "err");
+      }
+      if (count != null && count >= limit) {
+        const n = count;
+        setCounts((c) => ({ ...c, [metaId]: n }));
+        return toast(`${name}: all ${limit} edition${limit === 1 ? "" : "s"} minted`, "err");
+      }
       setMintStep(`Minting ${name}…`);
-      const hash = await ownerMint(provider, contract, w.address, uri);
+      const hash = await ownerMint(provider, contract, w.address, uri, chainId);
+      invalidateMintedCount(contract, metaId);
       toast(`Minted ${name} — ${hash.slice(0, 12)}…`, "ok");
     } catch (e) {
       toast(`Mint failed: ${errMsg(e)}`, "err");
@@ -129,9 +211,10 @@ export function Launch({ goCreate }: { goCreate: () => void }) {
   async function admin(action: Parameters<typeof adminCall>[2], label: string) {
     if (!contract) return;
     try {
+      if (!(await ensureChain())) return;
       const provider = await w.getProvider();
       if (!provider) return toast("Connect the wallet first", "err");
-      await adminCall(provider, contract, action);
+      await adminCall(provider, contract, action, chainId);
       toast(`${label} — done`, "ok");
       void refresh();
     } catch (e) {
@@ -189,7 +272,7 @@ export function Launch({ goCreate }: { goCreate: () => void }) {
     <section className="view">
       <div className="rail">
         <Stat label="Collection" value={wiz.naming.collection || "—"} sub={`${sealed.length} sealed items`} />
-        <Stat label="Contract" value={contract ? `${contract.slice(0, 6)}…${contract.slice(-4)}` : "—"} sub={contract ? (state?.symbol ?? "Base") : "deploy in Create"} />
+        <Stat label="Contract" value={contract ? `${contract.slice(0, 6)}…${contract.slice(-4)}` : "—"} sub={contract ? `${state?.symbol ? `${state.symbol} · ` : ""}${chain.name}` : "deploy in Create"} />
         <Stat label="Minted" value={state?.totalMinted != null ? String(state.totalMinted) : "—"} sub={state?.maxSupply != null && state.maxSupply !== 0n ? `of ${state.maxSupply}` : "on-chain"} />
         <Stat label="Public mint" value={state?.publicMint == null ? "—" : state.publicMint ? "ON" : "off"} sub={state?.mintPriceEth ? `${state.mintPriceEth} ETH` : "owner only"} />
       </div>
@@ -291,23 +374,33 @@ export function Launch({ goCreate }: { goCreate: () => void }) {
               <span className="panel__hint">{sealed.length} items · sealed forever</span>
             </header>
             <div className="wizard__grid">
-              {sealed.map((b) => (
-                <div className="wizitem is-sealed" key={b.id}>
-                  <div className="wizitem__media">{b.posterUrl ? <img src={b.posterUrl} alt="" /> : b.sealed?.image ? <img src={b.sealed.image} alt="" /> : <span className="wizitem__ph">sealed</span>}</div>
-                  <div className="wizitem__foot">
-                    <span className="wizitem__name">{b.name}</span>
-                    {b.tier && <span className="batch__tier">{b.tier}</span>}
+              {sealed.map((b) => {
+                const metaId = metaIdOf(b.sealed!.metadata);
+                const limit = itemEditionLimit(metaId);
+                const count = counts[metaId];
+                const exhausted = count != null && count >= limit;
+                return (
+                  <div className="wizitem is-sealed" key={b.id}>
+                    <div className="wizitem__media">{b.posterUrl ? <img src={b.posterUrl} alt="" /> : b.sealed?.image ? <img src={b.sealed.image} alt="" /> : <span className="wizitem__ph">sealed</span>}</div>
+                    <div className="wizitem__foot">
+                      <span className="wizitem__name">{b.name}</span>
+                      {b.tier && <span className="batch__tier">{b.tier}</span>}
+                    </div>
+                    <div className="irys-actions" style={{ justifyContent: "flex-start", marginTop: 6 }}>
+                      {exhausted ? (
+                        <span className="batch__sub">{count}/{limit} minted</span>
+                      ) : (
+                        <button className="btn btn--mini" disabled={minting || !contract} onClick={() => mintOne(b.sealed!.metadata, b.name)}>
+                          Mint
+                        </button>
+                      )}
+                      <button className="btn btn--ghost btn--mini" onClick={() => { void navigator.clipboard.writeText(b.sealed!.metadata); toast("Mint link copied", "ok"); }}>
+                        Copy link
+                      </button>
+                    </div>
                   </div>
-                  <div className="irys-actions" style={{ justifyContent: "flex-start", marginTop: 6 }}>
-                    <button className="btn btn--mini" disabled={minting || !contract} onClick={() => mintOne(b.sealed!.metadata, b.name)}>
-                      Mint
-                    </button>
-                    <button className="btn btn--ghost btn--mini" onClick={() => { void navigator.clipboard.writeText(b.sealed!.metadata); toast("Mint link copied", "ok"); }}>
-                      Copy link
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </article>
         </div>

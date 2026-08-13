@@ -3,11 +3,11 @@ import { useWallet } from "../wallet";
 import { useStore } from "../store";
 import type { InvItem, Collection } from "../inventory";
 import { groupCollections, UNSORTED } from "../inventory";
-import { BASE, type Tag } from "../config";
+import { BASE, chainInfo, type Tag } from "../config";
 import { canMint, mint } from "../mint";
 import { Drawer, Modal, CopyField, toast, errMsg } from "../ui";
 import { aliasOf, setAlias, useAliases } from "../renames";
-import { useForge, patchProfile, activeMintContract } from "../forge/forgeStore";
+import { useForge, patchProfile, activeMintContract, activeMintChainId, setItemEditions } from "../forge/forgeStore";
 import { readContractState, adminCall } from "../forge/deploy";
 import { uploadData } from "../irys";
 
@@ -122,13 +122,14 @@ function RenameDialog({ coll, onClose }: { coll: Collection; onClose: () => void
   const [busy, setBusy] = useState(false);
   const [canPushChain, setCanPushChain] = useState<boolean | null>(null);
   const contract = activeMintContract();
+  const contractChainId = activeMintChainId();
 
   useEffect(() => {
     if (!contract) return setCanPushChain(false);
-    readContractState(contract)
+    readContractState(contract, contractChainId)
       .then((s) => setCanPushChain(s.contractURI != null)) // CloneForge yes · ICloneAgent no
       .catch(() => setCanPushChain(false));
-  }, [contract]);
+  }, [contract, contractChainId]);
 
   function saveLocal() {
     setAlias(coll.key, name === coll.key ? "" : name);
@@ -158,9 +159,10 @@ function RenameDialog({ coll, onClose }: { coll: Collection; onClose: () => void
       const out = await uploadData(store.irys, new TextEncoder().encode(JSON.stringify(json, null, 2)), "application/json", tags);
       patchProfile({ sealedUri: out.url, name: name.trim() });
       // 2 · point the contract's contractURI at it (OpenSea reads it on refresh)
+      if (w.chainId !== contractChainId) await w.switchTo(contractChainId);
       const provider = await w.getProvider();
       if (!provider) throw new Error("Wallet provider unavailable");
-      await adminCall(provider, contract!, { fn: "setContractURI", args: [out.url] });
+      await adminCall(provider, contract!, { fn: "setContractURI", args: [out.url] }, contractChainId);
       setAlias(coll.key, name === coll.key ? "" : name);
       toast("Renamed — OpenSea updates after a metadata refresh", "ok");
       onClose();
@@ -400,23 +402,74 @@ function ItemCard({ it, onOpen }: { it: InvItem; onOpen: () => void }) {
 
 function ItemDetail({ it, onClose }: { it: InvItem; onClose: () => void }) {
   const w = useWallet();
+  const forge = useForge();
   const hero = it.final?.url ?? it.layers[0]?.url;
   const [minting, setMinting] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
   // when a pre-mint repair runs, mint the marketplace-ready metadata instead
   const [mintUri, setMintUri] = useState<string | null>(null);
+  const [minted, setMinted] = useState<number | null>(null); // null = checking
+  const [countFailed, setCountFailed] = useState(false);
+  const [countTick, setCountTick] = useState(0);
+
+  const chainId = activeMintChainId();
+  const chain = chainInfo(chainId);
+  const metaId = it.metadata?.id ?? null;
+  const limit = metaId
+    ? (forge.editionsByMeta[metaId] ?? Math.max(1, Math.floor(forge.drop.editionsPerItem || 1)))
+    : 1;
+  const exhausted = !countFailed && minted != null && minted >= limit;
+
+  useEffect(() => {
+    const contract = activeMintContract();
+    if (!metaId || !contract || !canMint()) {
+      setMinted(0);
+      return;
+    }
+    let alive = true;
+    setMinted(null);
+    setCountFailed(false);
+    (async () => {
+      try {
+        const { mintedCountFor } = await import("../forge/repair");
+        const n = await mintedCountFor(contract, metaId, chainId);
+        if (alive) setMinted(n);
+      } catch {
+        if (!alive) return;
+        setMinted(0);
+        setCountFailed(true);
+        toast("Edition check failed — minting stays open", "err");
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [metaId, chainId, countTick]);
 
   async function doMint() {
     if (!it.metadata) return;
     if (!w.connected || !w.address) return toast("Connect your wallet first", "err");
     setMinting(true);
     try {
-      if (!w.onBase) await w.switchToBase();
+      if (w.chainId !== chainId) {
+        try {
+          await w.switchTo(chainId);
+        } catch {
+          toast(`Couldn't switch the wallet to ${chain.name} — switch it manually and retry`, "err");
+          return;
+        }
+      }
       const provider = await w.getProvider();
       if (!provider) throw new Error("Wallet unavailable — reconnect.");
-      const hash = await mint(provider, w.address, mintUri ?? it.metadata.url);
+      const hash = await mint(provider, w.address, mintUri ?? it.metadata.url, chainId);
       setTxHash(hash);
       toast(`Mint sent: ${hash.slice(0, 10)}…`, "ok");
+      const contract = activeMintContract();
+      if (contract) {
+        const { invalidateMintedCount } = await import("../forge/repair");
+        invalidateMintedCount(contract, it.metadata.id);
+      }
+      setCountTick((t) => t + 1);
     } catch (e) {
       toast(`Mint failed: ${errMsg(e)}`, "err");
     } finally {
@@ -460,18 +513,49 @@ function ItemDetail({ it, onClose }: { it: InvItem; onClose: () => void }) {
       </div>
 
       {it.metadata && canMint() && (
-        <div className="dd__row">
-          <button className="btn btn--primary btn--block" onClick={doMint} disabled={minting || !w.connected}>
-            {minting ? "Minting…" : !w.connected ? "Connect wallet to mint" : "Mint on Base"}
-          </button>
-          {txHash ? (
-            <a className="dd__txlink" href={`${BASE.explorer}/tx/${txHash}`} target="_blank" rel="noopener noreferrer">
-              View transaction on Basescan
-            </a>
-          ) : (
-            <span className="dd__minthint">Mint this tokenURI on your contract on Base. Owner/minters mint for free.</span>
-          )}
-        </div>
+        <>
+          <div className="dd__row">
+            <span>Editions</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="number"
+                min={1}
+                value={limit}
+                style={{ width: 72 }}
+                onChange={(e) => setItemEditions(it.metadata!.id, e.target.value === "" ? null : Number(e.target.value))}
+              />
+              <span className="dd__minthint">
+                Minted {countFailed ? "?" : (minted ?? "…")} / {limit}
+              </span>
+            </div>
+          </div>
+          <div className="dd__row">
+            {exhausted ? (
+              <span className="dd__minthint">All {limit} edition{limit === 1 ? "" : "s"} minted</span>
+            ) : (
+              <button className="btn btn--primary btn--block" onClick={doMint} disabled={minting || !w.connected || minted === null}>
+                {minting
+                  ? "Minting…"
+                  : minted === null
+                    ? "Checking editions…"
+                    : !w.connected
+                      ? "Connect wallet to mint"
+                      : `Mint on ${chain.name}`}
+              </button>
+            )}
+            {txHash ? (
+              <a className="dd__txlink" href={`${chain.explorer}/tx/${txHash}`} target="_blank" rel="noopener noreferrer">
+                View transaction on {new URL(chain.explorer).host}
+              </a>
+            ) : (
+              !exhausted && (
+                <span className="dd__minthint">
+                  Mint this tokenURI on your contract on {chain.name}. Owner/minters mint for free.
+                </span>
+              )
+            )}
+          </div>
+        </>
       )}
       {it.metadata && !canMint() && (
         <div className="dd__row">
@@ -488,7 +572,7 @@ function ItemDetail({ it, onClose }: { it: InvItem; onClose: () => void }) {
 
       {it.metadata && mintUri && (
         <div className="dd__row">
-          <span className="dd__minthint">Marketplace-ready metadata prepared — “Mint on Base” will mint the repaired version.</span>
+          <span className="dd__minthint">Marketplace-ready metadata prepared — “Mint on {chain.name}” will mint the repaired version.</span>
         </div>
       )}
       {it.metadata && <MediaRepair metadataId={it.metadata.id} onRepaired={setMintUri} />}
@@ -511,6 +595,8 @@ function MediaRepair({ metadataId, onRepaired }: { metadataId: string; onRepaire
   const [step, setStep] = useState("");
   const [done, setDone] = useState<string | null>(null);
   const contract = activeMintContract();
+  const chainId = activeMintChainId();
+  const chainName = chainInfo(chainId).name;
 
   async function repair() {
     if (!contract) return toast("No mint contract configured", "err");
@@ -519,14 +605,18 @@ function MediaRepair({ metadataId, onRepaired }: { metadataId: string; onRepaire
     try {
       setStep("Finding every minted token of this item…");
       const { findTokensForMetadata, repairAllTokens, repairUnminted } = await import("../forge/repair");
-      const tokenIds = await findTokensForMetadata(contract, metadataId);
+      const tokenIds = await findTokensForMetadata(contract, metadataId, chainId);
       if (tokenIds.length === 0) {
         // sealed but not minted — prepare the marketplace-ready metadata NOW,
-        // so "Mint on Base" mints the fixed version (no setTokenURI needed)
+        // so the mint button mints the fixed version (no setTokenURI needed)
         const out = await repairUnminted({ irys: store.irys, uploadData, metadataId, onStep: setStep });
         onRepaired?.(out.uri);
-        setDone(`Not minted yet — metadata repaired (${out.detail}). Hit "Mint on Base" above to mint the marketplace-ready version.`);
+        setDone(`Not minted yet — metadata repaired (${out.detail}). Hit "Mint on ${chainName}" above to mint the marketplace-ready version.`);
         toast("Repaired — ready to mint", "ok");
+        return;
+      }
+      if (chainId !== BASE.id) {
+        toast("Post-mint media repair supports Base contracts only for now", "err");
         return;
       }
 
@@ -565,6 +655,7 @@ function MediaRepair({ metadataId, onRepaired }: { metadataId: string; onRepaire
 
   async function recenter() {
     if (!contract) return toast("No mint contract configured", "err");
+    if (chainId !== BASE.id) return toast("Framing repair supports Base contracts only for now", "err");
     if (!w.connected || !store.irys) return toast("Connect your wallet first", "err");
     setBusy(true);
     try {
@@ -591,6 +682,7 @@ function MediaRepair({ metadataId, onRepaired }: { metadataId: string; onRepaire
 
   async function reframe(file: File) {
     if (!contract) return toast("No mint contract configured", "err");
+    if (chainId !== BASE.id) return toast("Framing repair supports Base contracts only for now", "err");
     if (!w.connected || !store.irys) return toast("Connect your wallet first", "err");
     setBusy(true);
     try {

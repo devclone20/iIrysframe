@@ -13,8 +13,9 @@ import { SoulProvider } from "./soulStore";
 import { useWallet } from "./wallet";
 import { SettingsButton } from "./components/Settings";
 import { AssistantDock } from "./components/Assistant";
+import { IrysBase } from "./components/IrysBase";
 
-export type Tab = "create" | "launch" | "vault" | "agent" | "swap" | "soulupdate" | "playground";
+export type Tab = "create" | "launch" | "vault" | "irysbase" | "agent" | "swap" | "soulupdate" | "playground";
 
 export default function App() {
   return (
@@ -56,6 +57,9 @@ function Shell() {
         </div>
         <div hidden={tab !== "swap"}>
           <Swap />
+        </div>
+        <div hidden={tab !== "irysbase"}>
+          <IrysBase />
         </div>
         <div hidden={tab !== "soulupdate"}>
           <SoulUpdate />
