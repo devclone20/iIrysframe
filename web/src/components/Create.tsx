@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   useWizard,
   patchWizard,
@@ -16,7 +16,7 @@ import {
   type StepId,
 } from "../wizard/wizardStore";
 import { generateNames, NAME_SETS, SCHEME_INFO, type NamingScheme, type IdFormat } from "../wizard/naming";
-import { SOUL_PRESETS, SOUL_PRESET_NAMES, SOUL_MODELS } from "../soul";
+import { SOUL_PRESETS, SOUL_PRESET_NAMES, SOUL_MODELS, bundlePathFor } from "../soul";
 import { useForge, patchDrop, addDeployed, type TierShare } from "../forge/forgeStore";
 import { deployCloneForge, estimateDeployEth, DEV_WALLET } from "../forge/deploy";
 import { useWallet } from "../wallet";
@@ -120,6 +120,40 @@ export function StepShell({
         </button>
       </footer>
     </article>
+  );
+}
+
+/** The soul's full-body bundle line — the owner must SEE that the entire
+ *  monorepo travels with this soul into the NFT metadata at seal time. */
+function MonorepoBadge({ soul }: { soul: { preset: string; bundlePath?: string } }) {
+  const path = bundlePathFor(soul as never);
+  const [size, setSize] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    setSize(null);
+    if (!path) return;
+    fetch(path, { method: "HEAD" })
+      .then((r) => {
+        const n = Number(r.headers.get("content-length") || 0);
+        if (alive && n > 0) setSize((n / 1024 / 1024).toFixed(1) + " MB");
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [path]);
+  if (!path) {
+    return (
+      <div className="soul-monorepo soul-monorepo--none">
+        Custom soul — no monorepo bundle travels with it. Load iCLONE, VEGETA or GOKU to seal an agent body.
+      </div>
+    );
+  }
+  return (
+    <div className="soul-monorepo">
+      <strong>MONOREPO SEALED IN METADATA</strong> — this soul carries its entire agent monorepo
+      (soul + bootstrap + every file{size ? ` · ${size}` : ""}). Sealed once on Irys; every token
+      with this soul points to it via <code>ai_soul.monorepo</code> — any LLM can rebuild and run
+      the agent from the NFT alone.
+    </div>
   );
 }
 
@@ -500,6 +534,7 @@ function StepSouls() {
                         </button>
                       ))}
                     </div>
+                    <MonorepoBadge soul={s} />
                     <div className="form">
                       <div className="field">
                         <label>Name</label>

@@ -1239,3 +1239,10 @@ input[type=range] { accent-color:var(--accent); width:100%; }
 .ib__chip { border:1px solid var(--line); border-radius:99px; padding:1px 7px; font-size:.6rem; text-transform:uppercase; letter-spacing:.06em; }
 .ib__empty-panel { padding:22px; }
 .ib__empty-panel p { margin:6px 0 0; color:var(--text-2); font-size:.82rem; }
+
+/* Souls step — the monorepo-in-metadata line on each soul card */
+.soul-monorepo { border:1px solid color-mix(in srgb, var(--line) 80%, transparent); border-left:2px solid var(--text-2);
+  border-radius:8px; padding:9px 12px; margin:10px 0 4px; font-size:.72rem; line-height:1.55; color:var(--text-2); }
+.soul-monorepo strong { color:var(--text-1); letter-spacing:.06em; font-size:.66rem; }
+.soul-monorepo code { font-family:var(--mono); font-size:.66rem; color:var(--text-1); }
+.soul-monorepo--none { border-left-color:var(--line); color:var(--text-3); }

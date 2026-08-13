@@ -166,6 +166,15 @@ export function buildAiSoul(
 }
 
 /**
+ * The bundle path for a soul. Falls back to the preset's own path so a soul
+ * saved in the wizard BEFORE bundles existed (stale localStorage) still seals
+ * its monorepo — the preset name is the identity, the path is derivable.
+ */
+export function bundlePathFor(s: SoulConfig): string | undefined {
+  return s.bundlePath ?? (SOUL_PRESETS[s.preset as SoulPreset]?.bundlePath || undefined);
+}
+
+/**
  * Fetch each distinct preset soul bundle used by the given souls (from the
  * app's static /souls/ files), keyed by bundlePath. Souls without a bundle
  * (Custom) are simply absent from the map — callers degrade gracefully.
@@ -175,7 +184,7 @@ export async function loadSoulBundles(
 ): Promise<Map<string, { bytes: Uint8Array; sha256: string }>> {
   const out = new Map<string, { bytes: Uint8Array; sha256: string }>();
   for (const s of souls) {
-    const path = s.bundlePath;
+    const path = bundlePathFor(s);
     if (!path || out.has(path)) continue;
     const res = await fetch(path);
     if (!res.ok) continue; // missing bundle must never block a seal

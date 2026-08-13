@@ -5,7 +5,7 @@ import { Viewer3D } from "../three3d/Viewer3D";
 import { loadModelFile, exportGLB, validateGLB, isSupported, type LoadedModel } from "../three3d/load";
 import { optimizeGLB, fmtBytes } from "../three3d/optimize";
 import { buildMetadata, metadataToBytes, type Attribute } from "../metadata";
-import { buildAiSoul, loadSoulBundles, MONOREPO_NOTE, type MonorepoRef, type SoulConfig } from "../soul";
+import { buildAiSoul, bundlePathFor, loadSoulBundles, MONOREPO_NOTE, type MonorepoRef, type SoulConfig } from "../soul";
 import {
   useWizard,
   patchWizard,
@@ -410,7 +410,7 @@ export function StepSeal({ goLaunch }: { goLaunch: () => void }) {
 
     const ok = await confirmDialog(
       "Seal on Irys — permanent",
-      `Store <strong>${ready.length} item${ready.length === 1 ? "" : "s"}</strong> (${fmtBytes(totalBytes)}) forever on Irys, plus the drop manifest${soulsUsed.some((s) => s.bundlePath) ? " and each soul's full-body bundle (soul + entire monorepo)" : ""}. Files under 100 KiB are free; the rest is paid from your Irys credit in Base ETH. Irreversible.`,
+      `Store <strong>${ready.length} item${ready.length === 1 ? "" : "s"}</strong> (${fmtBytes(totalBytes)}) forever on Irys, plus the drop manifest${soulsUsed.some((s) => bundlePathFor(s)) ? " and each soul's full-body bundle (soul + entire monorepo)" : ""}. Files under 100 KiB are free; the rest is paid from your Irys credit in Base ETH. Irreversible.`,
       "Seal now",
     );
     if (!ok) return;
@@ -438,7 +438,7 @@ export function StepSeal({ goLaunch }: { goLaunch: () => void }) {
       // that soul references the same permanent document (ai_soul.monorepo).
       const monorepoByPath = new Map<string, MonorepoRef>();
       for (const [path, b] of bundles) {
-        const soulName = soulsUsed.find((s) => s.bundlePath === path)?.name || "soul";
+        const soulName = soulsUsed.find((s) => bundlePathFor(s) === path)?.name || "soul";
         setStepTxt(`Sealing ${soulName} — full-body soul bundle…`);
         const bTags: Tag[] = [
           { name: "App-Name", value: "iIrys Frame" },
@@ -537,7 +537,7 @@ export function StepSeal({ goLaunch }: { goLaunch: () => void }) {
                   soul,
                   item.slice(0, 8),
                   undefined,
-                  soul.bundlePath ? monorepoByPath.get(soul.bundlePath) : undefined,
+                  bundlePathFor(soul) ? monorepoByPath.get(bundlePathFor(soul)!) : undefined,
                 ) as unknown as Record<string, unknown>)
               : undefined,
           }) as unknown as Record<string, unknown>;

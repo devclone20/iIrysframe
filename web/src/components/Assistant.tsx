@@ -3,10 +3,10 @@ import { PROVIDERS, getKey, getPrefs, streamChat, LlmError, type ChatMessage } f
 import { ASSISTANT_SYSTEM, ASSISTANT_GREETING } from "../assistant";
 import { usePanels, openAssistant, closeAssistant, openSettings } from "../panels";
 
-/** The always-available iIrys support assistant. Runs on the user's own LLM
- *  (Settings → Assistant), streams answers about every part of the app, and
- *  keeps its transcript for the session. Opens from the user popover or its own
- *  floating button; deep-links to Settings when no key is connected. */
+/** pi — the resident agent's dock. Runs on the user's own LLM (BYOK, Settings →
+ *  Assistant), streams answers about every part of the app, and keeps its
+ *  transcript for the session. Opens from the user popover or its own floating
+ *  button; deep-links to Settings when no key is connected. */
 export function AssistantDock() {
   const panels = usePanels();
   return (
@@ -14,8 +14,8 @@ export function AssistantDock() {
       <button
         className={`assistant-fab ${panels.assistant ? "is-open" : ""}`}
         onClick={() => (panels.assistant ? closeAssistant() : openAssistant())}
-        aria-label="iIrys assistant"
-        title="iIrys assistant"
+        aria-label="pi — the agent"
+        title="pi — the agent"
       >
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
           <path d="M4 5.5h16v10H8.5L4 19V5.5Z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
@@ -94,12 +94,19 @@ function AssistantPanel() {
   return (
     <>
       <div className="assistant-scrim" onClick={() => closeAssistant()} />
-      <div className="assistant" role="dialog" aria-label="iIrys assistant">
+      <div className="assistant" role="dialog" aria-label="pi — the agent">
         <header className="assistant__head">
           <span className="assistant__dot" />
           <div className="assistant__title">
-            <strong>iIrys</strong>
-            <span>assistant · {connected ? provider.label : "not connected"}</span>
+            <strong>pi</strong>
+            <span>
+              the agent ·{" "}
+              <a href="https://pi.dev" target="_blank" rel="noopener noreferrer">
+                pi.dev
+              </a>
+              {" · "}
+              {connected ? provider.label : "not connected"}
+            </span>
           </div>
           <button className="assistant__x" onClick={() => closeAssistant()} aria-label="Close">
             <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
@@ -110,18 +117,18 @@ function AssistantPanel() {
 
         <div className="assistant__scroll chat-scroll" ref={scrollRef}>
           <div className="bubble bubble--assistant">
-            <span className="bubble__who">iIrys</span>
+            <span className="bubble__who">pi</span>
             <div className="bubble__body">{ASSISTANT_GREETING}</div>
           </div>
           {history.map((m, i) => (
             <div className={`bubble bubble--${m.role}`} key={i}>
-              <span className="bubble__who">{m.role === "user" ? "you" : "iIrys"}</span>
+              <span className="bubble__who">{m.role === "user" ? "you" : "pi"}</span>
               <div className="bubble__body">{m.content}</div>
             </div>
           ))}
           {streamText !== null && (
             <div className="bubble bubble--assistant">
-              <span className="bubble__who">iIrys</span>
+              <span className="bubble__who">pi</span>
               <div className="bubble__body">
                 {streamText}
                 <span className="bubble__caret" />
@@ -132,7 +139,7 @@ function AssistantPanel() {
 
         {!connected && (
           <div className="assistant__connect">
-            Connect your LLM to turn on support.
+            Connect your LLM to bring pi online.
             <button className="btn btn--mini" onClick={() => openSettings("assistant")}>Connect in Settings</button>
           </div>
         )}
@@ -148,7 +155,7 @@ function AssistantPanel() {
                 void send();
               }
             }}
-            placeholder={connected ? "Ask about sealing, minting, royalties, agents…" : "Connect an LLM in Settings to start"}
+            placeholder={connected ? "Ask pi — sealing, contracts, OpenSea repair, agents…" : "Connect an LLM in Settings to start"}
           />
           {streamText !== null ? (
             <button className="btn" onClick={() => abortRef.current?.abort()}>Stop</button>
