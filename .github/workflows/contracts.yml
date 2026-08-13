@@ -38,7 +38,14 @@ jobs:
           submodules: recursive
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
+        # Versão FIXA, não "stable". O `forge fmt` muda de regras entre versões:
+        # com "stable" o CI reformata a régua debaixo dos pés e o `--check`
+        # passa a falhar sozinho sem ninguém ter tocado no Solidity — foi o que
+        # aconteceu aqui desde 13-07. v1.7.1 é a estável mais recente (08-05),
+        # muito além da quarentena de 14 dias.
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1
+        with:
+          version: v1.7.1
 
       - name: Show Forge version
         run: forge --version
