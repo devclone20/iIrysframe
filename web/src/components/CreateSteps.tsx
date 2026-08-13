@@ -5,7 +5,7 @@ import { Viewer3D } from "../three3d/Viewer3D";
 import { loadModelFile, exportGLB, validateGLB, isSupported, type LoadedModel } from "../three3d/load";
 import { optimizeGLB, fmtBytes } from "../three3d/optimize";
 import { buildMetadata, metadataToBytes, type Attribute } from "../metadata";
-import { buildAiSoul } from "../soul";
+import { buildAiSoul, loadSoulBundles, MONOREPO_NOTE, type MonorepoRef, type SoulConfig } from "../soul";
 import {
   useWizard,
   patchWizard,
@@ -362,6 +362,15 @@ export function StepSeal({ goLaunch }: { goLaunch: () => void }) {
     () => ready.reduce((s, b) => s + (b.glb?.byteLength ?? 0) + (b.poster?.size ?? 0) + 2600, 0),
     [ready],
   );
+  const soulsById = useMemo(() => new Map(wiz.souls.map((s) => [s.id, s])), [wiz.souls]);
+  // Distinct preset souls attached to items being sealed — each one's full-body
+  // bundle (soul + embedded monorepo) is sealed ONCE and referenced from every
+  // token that carries that soul (ai_soul.monorepo).
+  const soulsUsed = useMemo<SoulConfig[]>(() => {
+    if (!wiz.soulsOn) return [];
+    const ids = [...new Set(ready.map((b) => b.soulId).filter((id): id is string => !!id))];
+    return ids.map((id) => soulsById.get(id)).filter((s): s is (typeof wiz.souls)[number] => !!s);
+  }, [wiz.soulsOn, ready, soulsById]);
 
   async function quoteNow() {
     if (!store.irys) return toast("Connect your wallet first", "err");
@@ -379,6 +388,12 @@ export function StepSeal({ goLaunch }: { goLaunch: () => void }) {
           else paid++;
         }
       }
+      for (const { bytes } of (await loadSoulBundles(soulsUsed)).values()) {
+        const q = await priceOf(store.irys, bytes.byteLength);
+        need += BigInt(q.atomic);
+        if (q.free) free++;
+        else paid++;
+      }
       setQuote({ eth: (Number(need) / 1e18).toFixed(6), free, paid });
     } catch (e) {
       toast(`Quote failed: ${errMsg(e)}`, "err");
@@ -395,7 +410,7 @@ export function StepSeal({ goLaunch }: { goLaunch: () => void }) {
 
     const ok = await confirmDialog(
       "Seal on Irys — permanent",
-      `Store <strong>${ready.length} item${ready.length === 1 ? "" : "s"}</strong> (${fmtBytes(totalBytes)}) forever on Irys, plus the drop manifest. Files under 100 KiB are free; the rest is paid from your Irys credit in Base ETH. Irreversible.`,
+      `Store <strong>${ready.length} item${ready.length === 1 ? "" : "s"}</strong> (${fmtBytes(totalBytes)}) forever on Irys, plus the drop manifest${soulsUsed.some((s) => s.bundlePath) ? " and each soul's full-body bundle (soul + entire monorepo)" : ""}. Files under 100 KiB are free; the rest is paid from your Irys credit in Base ETH. Irreversible.`,
       "Seal now",
     );
     if (!ok) return;
@@ -405,16 +420,36 @@ export function StepSeal({ goLaunch }: { goLaunch: () => void }) {
       const provider = await w.getProvider();
       if (!provider) throw new Error("Wallet provider unavailable");
       setStepTxt("Funding storage…");
+      const bundles = await loadSoulBundles(soulsUsed);
       let need = 0n;
       for (const b of ready) {
         for (const s of [b.glb?.byteLength ?? 0, b.poster?.size ?? 0, 2600]) {
           if (s > 0) need += BigInt((await priceOf(store.irys, s)).atomic);
         }
       }
+      for (const { bytes } of bundles.values()) {
+        need += BigInt((await priceOf(store.irys, bytes.byteLength)).atomic);
+      }
       await ensureFunded(store.irys, need, provider);
 
       const collection = wiz.naming.collection.trim();
-      const soulsById = new Map(wiz.souls.map((s) => [s.id, s]));
+
+      // Seal each distinct full-body soul bundle once; every token carrying
+      // that soul references the same permanent document (ai_soul.monorepo).
+      const monorepoByPath = new Map<string, MonorepoRef>();
+      for (const [path, b] of bundles) {
+        const soulName = soulsUsed.find((s) => s.bundlePath === path)?.name || "soul";
+        setStepTxt(`Sealing ${soulName} — full-body soul bundle…`);
+        const bTags: Tag[] = [
+          { name: "App-Name", value: "iIrys Frame" },
+          { name: "Type", value: "soul-bundle" },
+          { name: "Name", value: `${soulName} — full-body soul bundle` },
+          ...(collection ? [{ name: "Collection", value: collection }] : []),
+        ];
+        const up = await uploadData(store.irys, b.bytes, "text/markdown", bTags);
+        monorepoByPath.set(path, { url: up.url, sha256: b.sha256, bytes: b.bytes.byteLength, note: MONOREPO_NOTE });
+      }
+
       const metadataIds: string[] = [];
       let edition = 0;
 
@@ -497,7 +532,14 @@ export function StepSeal({ goLaunch }: { goLaunch: () => void }) {
             animation_url: animFinal,
             background_color: is3d ? (wiz.background.color ?? undefined) : undefined,
             attributes,
-            ai_soul: soul ? (buildAiSoul(soul, item.slice(0, 8)) as unknown as Record<string, unknown>) : undefined,
+            ai_soul: soul
+              ? (buildAiSoul(
+                  soul,
+                  item.slice(0, 8),
+                  undefined,
+                  soul.bundlePath ? monorepoByPath.get(soul.bundlePath) : undefined,
+                ) as unknown as Record<string, unknown>)
+              : undefined,
           }) as unknown as Record<string, unknown>;
           if (imgGw) meta.image_gateway = imgGw;
           if (animGw) meta.animation_gateway = animGw;
