@@ -43,18 +43,48 @@ export interface WizItem {
   after?: number;
   tris?: number;
   clips?: number;
+  // background — resolved per item, never one colour for the whole drop
+  /** The model carries its own baked backdrop (iCLONE dome) — detected on drop. */
+  hasOwnBg?: boolean;
+  /** Baked field/rim colours read from the file (6-hex, no #). */
+  bakedHex?: string;
+  bakedRim?: string;
+  /** Colour actually used for this item's poster + background_color metadata. */
+  bgHex?: string | null;
+  bgName?: string;
   // shared
   poster?: Blob; // 3d capture · 2d = the image itself
   posterUrl?: string;
+  /** The poster was supplied alongside the model (same filename), not captured
+   * from the viewer — so it keeps its own resolution and is never re-queued. */
+  posterProvided?: boolean;
+  posterDims?: { w: number; h: number };
   attributes?: { trait_type: string; value: string | number }[]; // 2D generative traits
   tier?: string;
   soulId?: string;
   sealed?: { model: string | null; image: string | null; metadata: string; metadataId: string };
+  /** Partial seal progress. Every Irys upload is paid and permanent the moment it
+   * lands, so a retry after a mid-item failure must REUSE what already sealed —
+   * never pay for the same bytes twice. */
+  up?: {
+    item?: string; // the Item tag uid — stable across retries so the Vault groups correctly
+    model?: { id: string; url: string };
+    image?: { id: string; url: string };
+    manifest?: { id: string };
+    imgFinal?: string;
+    animFinal?: string;
+    imgGw?: string;
+    animGw?: string;
+  };
 }
 
 export interface WizSoul extends SoulConfig {
   id: string;
 }
+
+/** How items WITHOUT a baked backdrop get their colour. Items with a baked
+ * backdrop always use their own — the file knows better than any setting. */
+export type BgMode = "auto" | "fixed" | "none";
 
 interface WizardState {
   step: StepId;
@@ -68,6 +98,7 @@ interface WizardState {
   soulsOn: boolean;
   naming: NamingConfig;
   description: string;
+  bgMode: BgMode;
   background: { name: string; color: string | null };
   sealBaseURI: string | null; // drop manifest of THIS collection
   sealedAt: number | null;
@@ -95,7 +126,11 @@ function loadPersisted(): Partial<WizardState> {
       soulsOn: raw.soulsOn !== false,
       naming: { ...DEFAULT_NAMING, ...(raw.naming ?? {}) },
       description: typeof raw.description === "string" ? raw.description : "",
+      bgMode: raw.bgMode === "fixed" || raw.bgMode === "none" ? raw.bgMode : "auto",
       background: raw.background ?? { name: "Milk Rose", color: "#F7D9E3" },
+      // the seal's outcome must survive a reload — it is the launch step's input
+      sealBaseURI: typeof raw.sealBaseURI === "string" ? raw.sealBaseURI : null,
+      sealedAt: typeof raw.sealedAt === "number" ? raw.sealedAt : null,
     };
   } catch {
     return {};
@@ -114,6 +149,7 @@ let state: WizardState = {
   soulsOn: true,
   naming: { ...DEFAULT_NAMING },
   description: "",
+  bgMode: "auto",
   background: { name: "Milk Rose", color: "#F7D9E3" },
   sealBaseURI: null,
   sealedAt: null,
@@ -124,10 +160,10 @@ const subs = new Set<() => void>();
 
 function persist() {
   try {
-    const { step, kind, scope, launch, contractSkipped, souls, soulAssign, soulsOn, naming, description, background } = state;
+    const { step, kind, scope, launch, contractSkipped, souls, soulAssign, soulsOn, naming, description, bgMode, background } = state;
     localStorage.setItem(
       KEY,
-      JSON.stringify({ step, kind, scope, launch, contractSkipped, souls, soulAssign, soulsOn, naming, description, background }),
+      JSON.stringify({ step, kind, scope, launch, contractSkipped, souls, soulAssign, soulsOn, naming, description, bgMode, background }),
     );
   } catch {
     /* quota */
@@ -276,8 +312,15 @@ export function stepDone(step: StepId): boolean {
       return s.contractSkipped || hasDeployedContract();
     case "upload":
       return s.items.length > 0;
-    case "souls":
-      return !s.soulsOn || s.items.every((i) => i.soulId) || s.items.length === 0 ? s.souls.length > 0 : false;
+    case "souls": {
+      // Souls off = nothing to do. Souls on = there must be at least one soul,
+      // and every item must carry its assignment. (The old one-liner parsed as
+      // `(a || b || c) ? souls.length > 0 : false` — with souls OFF and the
+      // presets deleted it reported the step incomplete forever.)
+      if (!s.soulsOn) return true;
+      if (s.souls.length === 0) return false;
+      return s.items.length === 0 || s.items.every((i) => i.soulId);
+    }
     case "naming":
       return !!s.naming.collection.trim();
     case "process":
@@ -315,4 +358,17 @@ export function resetWizard() {
     sealedAt: null,
   };
   emit();
+}
+
+// Dev-only test hook: lets an automated browser drive the wizard without the
+// file picker (E2E poster/background tests). Absent from production builds.
+if (import.meta.env.DEV && typeof window !== "undefined") {
+  (window as unknown as Record<string, unknown>).__wiz = {
+    addFiles,
+    getWizard,
+    patchWizard,
+    patchItem,
+    goStep,
+    clearItems,
+  };
 }

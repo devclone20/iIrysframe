@@ -90,9 +90,7 @@ contract CloneForgeTest is Test {
 
     function test_MaxSupplyEnforced() public {
         vm.startPrank(owner);
-        for (uint256 i = 0; i < 5; i++) {
-            forge_.mint(owner, "https://gateway.irys.xyz/x");
-        }
+        for (uint256 i = 0; i < 5; i++) forge_.mint(owner, "https://gateway.irys.xyz/x");
         vm.expectRevert(CloneForge.MaxSupplyReached.selector);
         forge_.mint(owner, "https://gateway.irys.xyz/x");
         vm.stopPrank();

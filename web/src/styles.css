@@ -581,6 +581,11 @@ main { padding:0 clamp(14px,3vw,32px) 80px; max-width:1320px; margin:0 auto; }
   color:var(--text-2); background:var(--surface); border:1px solid var(--line-2); }
 .setup-banner span { font-weight:600; color:var(--text); }
 .setup-banner code { color:var(--text); background:var(--surface-2); padding:1px 6px; border-radius:5px; }
+.setup-banner a { color:var(--text); text-decoration:underline; text-underline-offset:2px; }
+.setup-banner__form { display:inline-flex; gap:8px; align-items:center; margin-left:10px; vertical-align:middle; }
+.setup-banner__form input { width:270px; padding:6px 10px; font-size:.78rem; font-family:var(--mono,ui-monospace,monospace);
+  color:var(--text); background:var(--surface-2); border:1px solid var(--line-2); border-radius:var(--radius-sm); }
+.setup-banner__form input:focus { outline:none; border-color:var(--line); }
 
 /* ── Soul tab ────────────────────────────────────────────────────────────── */
 .soul { display:grid; grid-template-columns:minmax(320px,1fr) minmax(320px,1fr); gap:18px; padding:18px 0; align-items:start; }
@@ -1246,3 +1251,16 @@ input[type=range] { accent-color:var(--accent); width:100%; }
 .soul-monorepo strong { color:var(--text-1); letter-spacing:.06em; font-size:.66rem; }
 .soul-monorepo code { font-family:var(--mono); font-size:.66rem; color:var(--text-1); }
 .soul-monorepo--none { border-left-color:var(--line); color:var(--text-3); }
+
+/* per-item background chip (Process grid) */
+.wizbg__modes { display: inline-flex; gap: 6px; margin-right: 10px; }
+.wizitem__bg {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 4px 10px 8px; padding: 2px 8px;
+  font-size: 10.5px; letter-spacing: .04em; color: var(--ink-dim, #9a9aa4);
+  background: transparent; border: 1px solid rgba(255,255,255,.12);
+  border-radius: 999px; cursor: pointer;
+}
+.wizitem__bg:hover { color: var(--ink, #eaeaf0); border-color: rgba(255,255,255,.28); }
+.wizitem__bg.is-own { color: #8fd8a8; border-color: rgba(143,216,168,.4); }
+.wizitem__bg i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }

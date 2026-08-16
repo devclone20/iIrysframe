@@ -12,7 +12,17 @@ import "./styles.css";
 
 applyTheme();
 
-const appId = (import.meta.env.VITE_PRIVY_APP_ID as string | undefined)?.trim();
+// The App ID is normally baked in at build time — which would lock the
+// prebuilt download to whoever built it. A value saved in the browser wins, so
+// anyone can paste their own free Privy App ID into the running app.
+const savedAppId = (() => {
+  try {
+    return localStorage.getItem("iirys.privyAppId")?.trim() || "";
+  } catch {
+    return "";
+  }
+})();
+const appId = savedAppId || (import.meta.env.VITE_PRIVY_APP_ID as string | undefined)?.trim();
 
 // Robinhood Chain for Privy/viem — lets the wallet switch to 4663 for
 // CloneForge deploys and mints there. Base remains the default chain.

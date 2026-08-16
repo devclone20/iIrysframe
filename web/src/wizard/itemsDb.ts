@@ -19,6 +19,7 @@ function open(): Promise<IDBDatabase> {
 }
 
 interface StoredItem {
+  order?: number;
   id: string;
   sourceName: string;
   name: string;
@@ -31,26 +32,48 @@ interface StoredItem {
   tris?: number;
   clips?: number;
   poster?: Blob;
+  posterProvided?: boolean;
+  posterDims?: WizItem["posterDims"];
+  hasOwnBg?: boolean;
+  bakedHex?: string;
+  bakedRim?: string;
+  bgHex?: string | null;
+  bgName?: string;
   attributes?: WizItem["attributes"];
   tier?: string;
   soulId?: string;
   sealed?: WizItem["sealed"];
+  up?: WizItem["up"];
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+/** Last object written per id. patchItem replaces only the item it touches, so
+ * reference identity tells us exactly what changed — without it every patch
+ * rewrote all 1111 records, re-wrapping every glb as a fresh Blob (gigabytes of
+ * copies per save, and quota death long before the batch finished). */
+const written = new Map<string, WizItem>();
 
-/** Debounced write of the full item list (bytes → Blobs). */
+/** Debounced, incremental write: only items whose object changed, plus removals. */
 export function saveItems(items: WizItem[]): void {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     void (async () => {
       try {
+        const alive = new Set(items.map((i) => i.id));
+        const changed = items.filter((it) => written.get(it.id) !== it);
+        const removed = [...written.keys()].filter((id) => !alive.has(id));
+        if (changed.length === 0 && removed.length === 0) return;
         const db = await open();
         const tx = db.transaction(STORE, "readwrite");
         const store = tx.objectStore(STORE);
-        store.clear();
+        for (const id of removed) {
+          store.delete(id);
+          written.delete(id);
+        }
         items.forEach((it, i) => {
+          if (written.get(it.id) === it) return;
           const rec: StoredItem = {
+            order: i,
             id: it.id,
             sourceName: it.sourceName,
             name: it.name,
@@ -65,12 +88,23 @@ export function saveItems(items: WizItem[]): void {
             tris: it.tris,
             clips: it.clips,
             poster: it.poster,
+            posterProvided: it.posterProvided,
+            posterDims: it.posterDims,
+            hasOwnBg: it.hasOwnBg,
+            bakedHex: it.bakedHex,
+            bakedRim: it.bakedRim,
+            bgHex: it.bgHex,
+            bgName: it.bgName,
             attributes: it.attributes,
             tier: it.tier,
             soulId: it.soulId,
             sealed: it.sealed,
+            up: it.up,
           };
-          store.put(rec, `${String(i).padStart(5, "0")}:${it.id}`);
+          // keyed by id, ordered by the stored `order` — so re-ordering the
+          // list does not force a rewrite of every record
+          store.put(rec, it.id);
+          written.set(it.id, it);
         });
         db.close();
       } catch {
@@ -101,7 +135,7 @@ export async function loadItems(): Promise<WizItem[]> {
     db.close();
     const ordered = keys
       .map((k, i) => ({ k: String(k), v: values[i]! }))
-      .sort((a, b) => a.k.localeCompare(b.k))
+      .sort((a, b) => (a.v.order ?? Number.MAX_SAFE_INTEGER) - (b.v.order ?? Number.MAX_SAFE_INTEGER) || a.k.localeCompare(b.k))
       .map((x) => x.v);
     const out: WizItem[] = [];
     for (const s of ordered) {
@@ -121,12 +155,24 @@ export async function loadItems(): Promise<WizItem[]> {
         clips: s.clips,
         poster: s.poster,
         posterUrl: s.poster ? URL.createObjectURL(s.poster) : undefined,
+        posterProvided: s.posterProvided,
+        posterDims: s.posterDims,
+        hasOwnBg: s.hasOwnBg,
+        bakedHex: s.bakedHex,
+        bakedRim: s.bakedRim,
+        bgHex: s.bgHex,
+        bgName: s.bgName,
         attributes: s.attributes,
         tier: s.tier,
         soulId: s.soulId,
         sealed: s.sealed,
+        up: s.up,
       });
     }
+    // seed the identity map: what we just read IS what the DB holds, so the
+    // first patch after a reload writes one record, not all of them again
+    written.clear();
+    for (const it of out) written.set(it.id, it);
     return out;
   } catch {
     return [];
@@ -134,6 +180,7 @@ export async function loadItems(): Promise<WizItem[]> {
 }
 
 export async function clearStoredItems(): Promise<void> {
+  written.clear();
   try {
     const db = await open();
     const tx = db.transaction(STORE, "readwrite");

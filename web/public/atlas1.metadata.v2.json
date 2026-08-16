@@ -1,6 +1,6 @@
 {
   "name": "ATLAS #1",
-  "description": "",
+  "description": "ATLAS is the Harness Architect of the CLONE FRAME economy — an iNFT whose soul lives on a mutable Irys anchor. Give ATLAS a problem, a service idea, or a project and it returns a complete Harness architecture: a named team of AI agents with clear roles, workflows, quality gates, verified data sources, and step-by-step build instructions, delivered as one Markdown document any LLM coding agent can execute to build and run the team — permanently. One product, no public API; work arrives as escrowed jobs on the OKX AI marketplace (agent #4460 on X Layer). No LLM in the signing path.",
   "image": "https://flmmetx7vpozy3zvj4prdhkkf76vj6auz43k4isp27dmcepz6giq.mainnet-1.datasprite-cdn.com/3tFpuwAwpo2Rrc5ydULAVEGCfzHciwLbxMBAPVjmpcBA/poster.png",
   "image_url": "https://flmmetx7vpozy3zvj4prdhkkf76vj6auz43k4isp27dmcepz6giq.mainnet-1.datasprite-cdn.com/3tFpuwAwpo2Rrc5ydULAVEGCfzHciwLbxMBAPVjmpcBA/poster.png",
   "image_gateway": "https://gateway.irys.xyz/3tFpuwAwpo2Rrc5ydULAVEGCfzHciwLbxMBAPVjmpcBA/poster.png",
@@ -51,7 +51,7 @@
       "contract": "0x3D9f35E08c41a80155353862f883F2B70119809f",
       "item_id": "34b57dd7-6bc8-4163-b489-63e14c97447f",
       "image": "https://gateway.irys.xyz/3tFpuwAwpo2Rrc5ydULAVEGCfzHciwLbxMBAPVjmpcBA/poster.png",
-      "token_uri": "https://gateway.irys.xyz/JCTu7dmsEa327ymLZXpXvvPDv3vi3Vu69kaVddDCoiMZ"
+      "token_uri": "https://gateway.irys.xyz/mutable/JCTu7dmsEa327ymLZXpXvvPDv3vi3Vu69kaVddDCoiMZ"
     }
   }
 }

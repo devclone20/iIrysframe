@@ -27,6 +27,43 @@ export default function App() {
   );
 }
 
+/** No wallet login yet: take the Privy App ID right here. Saving it in the
+ *  browser means the prebuilt download works for anyone — no rebuild, no .env. */
+function SetupBanner() {
+  const [id, setId] = useState("");
+  return (
+    <div className="setup-banner">
+      <span>Wallet login is off.</span> Paste a Privy App ID (free at{" "}
+      <a href="https://dashboard.privy.io" target="_blank" rel="noopener noreferrer">dashboard.privy.io</a>) to
+      enable sealing — or set <code>VITE_PRIVY_APP_ID</code> in <code>web/.env</code>. Create still works for
+      building and processing.
+      <span className="setup-banner__form">
+        <input
+          value={id}
+          onChange={(e) => setId(e.target.value)}
+          placeholder="Privy App ID"
+          spellCheck={false}
+          aria-label="Privy App ID"
+        />
+        <button
+          className="btn btn--mini btn--primary"
+          disabled={id.trim().length < 8}
+          onClick={() => {
+            try {
+              localStorage.setItem("iirys.privyAppId", id.trim());
+            } catch {
+              /* private mode */
+            }
+            location.reload();
+          }}
+        >
+          Save &amp; reload
+        </button>
+      </span>
+    </div>
+  );
+}
+
 function Shell() {
   const [tab, setTab] = useState<Tab>("create");
   const w = useWallet();
@@ -35,12 +72,7 @@ function Shell() {
     <>
       <TopBar tab={tab} onTab={setTab} />
 
-      {!w.available && (
-        <div className="setup-banner">
-          <span>Wallet login is off.</span> Set <code>VITE_PRIVY_APP_ID</code> in <code>web/.env</code> (free at
-          dashboard.privy.io) and restart <code>npm run dev</code>. Create still works for building and processing.
-        </div>
-      )}
+      {!w.available && <SetupBanner />}
 
       <main>
         <div hidden={tab !== "create"}>

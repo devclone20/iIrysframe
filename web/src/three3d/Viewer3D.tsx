@@ -2,9 +2,10 @@
 // clips; turntables when there are none. preserveDrawingBuffer lets the parent
 // grab a poster frame straight off the canvas.
 import { Suspense, useEffect, useRef } from "react";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas, useThree, type RootState } from "@react-three/fiber";
 import { OrbitControls, ContactShadows, useAnimations } from "@react-three/drei";
 import * as THREE from "three";
+import { isBackdropNode } from "./load";
 
 /** Paint the scene background into the WebGL buffer so it's captured in posters. */
 function SceneBackground({ color }: { color: string | null }) {
@@ -45,11 +46,18 @@ function FitCamera({ object, animations, margin = 1.1 }: { object: THREE.Object3
         const p = new THREE.Vector3();
         for (const b of bones) box.expandByPoint(b.getWorldPosition(p));
         const h = box.getSize(new THREE.Vector3()).y || 1;
-        box.expandByVector(new THREE.Vector3(h * 0.05, 0, h * 0.05)); // hands past wrist bones
-        box.max.y += h * 0.1; // skull top above the head bone
-        box.min.y -= h * 0.03; // soles below the ankle/toe bones
+        box.expandByVector(new THREE.Vector3(h * 0.07, 0, h * 0.07)); // hands past wrist bones
+        box.max.y += h * 0.14; // helmet/antenna above the head bone
+        box.min.y -= h * 0.05; // soles below the ankle/toe bones
       } else {
-        box.setFromObject(object);
+        // measure the FIGURE, never a baked backdrop dome — the dome is scenery,
+        // and letting it into the fit is what shrinks the character to a speck
+        object.traverse((o) => {
+          const mesh = o as THREE.Mesh;
+          if (!mesh.isMesh || isBackdropNode(mesh.name) || isBackdropNode(mesh.parent?.name)) return;
+          box.expandByObject(mesh);
+        });
+        if (box.isEmpty()) box.setFromObject(object);
       }
       if (box.isEmpty()) return;
 
@@ -130,10 +138,15 @@ export interface Viewer3DProps {
   animIndex: number;
   autoRotate: boolean;
   background?: string | null;
+  /** Fit margin — poster capture passes a wider one so animated poses never crop. */
+  margin?: number;
   onCanvas?: (el: HTMLCanvasElement) => void;
+  /** Full r3f state — poster capture uses it to force a fresh frame on demand,
+   * so an occluded or backgrounded window can never yield a black poster. */
+  onReady?: (state: RootState) => void;
 }
 
-export function Viewer3D({ object, animations, animIndex, autoRotate, background = null, onCanvas }: Viewer3DProps) {
+export function Viewer3D({ object, animations, animIndex, autoRotate, background = null, margin = 1.1, onCanvas, onReady }: Viewer3DProps) {
   const hasClips = animations.length > 0;
   // lift ambient on light backdrops so the model never reads murky
   const lightBg = background != null;
@@ -143,10 +156,11 @@ export function Viewer3D({ object, animations, animIndex, autoRotate, background
       dpr={[2, 3]}
       camera={{ position: [0, 1.2, 6], fov: 38 }}
       gl={{ antialias: true, alpha: true, preserveDrawingBuffer: true }}
-      onCreated={({ gl }) => {
-        gl.toneMapping = THREE.ACESFilmicToneMapping;
-        gl.toneMappingExposure = 1.05;
-        onCanvas?.(gl.domElement);
+      onCreated={(state) => {
+        state.gl.toneMapping = THREE.ACESFilmicToneMapping;
+        state.gl.toneMappingExposure = 1.05;
+        onCanvas?.(state.gl.domElement);
+        onReady?.(state);
       }}
     >
       <SceneBackground color={background} />
@@ -166,7 +180,7 @@ export function Viewer3D({ object, animations, animIndex, autoRotate, background
       <Suspense fallback={null}>
         <Model object={object} animations={animations} animIndex={animIndex} playing={hasClips} />
       </Suspense>
-      <FitCamera object={object} animations={animations} />
+      <FitCamera object={object} animations={animations} margin={margin} />
 
       <ContactShadows position={[0, 0.01, 0]} opacity={0.5} scale={12} blur={2.4} far={6} resolution={1024} color="#000000" />
       <OrbitControls makeDefault enableDamping dampingFactor={0.07} autoRotate={autoRotate || !hasClips} autoRotateSpeed={1.1} />

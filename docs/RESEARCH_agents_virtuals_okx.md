@@ -487,6 +487,6 @@ Actionable gotchas an implementer will hit. (E-codes = repo doc 06.)
   docs 00–07, cloned + read in full)
 - In-repo — `contracts/src/CloneForge.sol`, `web/src/{soul.ts,llm.ts,mint.ts,config.ts}`,
   `web/src/forge/{deploy.ts,forgeStore.ts}`, `web/src/wizard/wizardStore.ts`
-- Harness definition — `the HARNESS_ENGINE spec (CLONE FRAME Forge)` (Forge forges Harnesses; laws
+- Harness definition — `~/Desktop/iFRAME/HARNESS_ENGINE/HARNESS_ENGINE.md` (Forge forges Harnesses; laws
   L1–L19; "never an LLM in the signing path"; `@virtuals-protocol/acp-node` for signing)
 ```

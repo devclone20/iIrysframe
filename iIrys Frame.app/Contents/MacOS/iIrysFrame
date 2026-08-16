@@ -1,0 +1,92 @@
+#!/bin/bash
+# iIrys Frame.app — arranca o servidor local e abre o iIrys Frame numa janela
+# Google Chrome dedicada (modo app, sem barras), sem Terminal.
+# Para parar: botão direito no ícone do Dock → Sair (ou Forçar Saída).
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.foundry/bin:$PATH"
+
+# Resolve a pasta web robustamente: usa a primeira candidata que tenha package.json.
+# A primeira sobe do executável até à raiz da app (MacOS → Contents → .app → pasta do
+# projecto), por isso a app pode mudar de sítio sem partir o ícone do Dock.
+APPROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+WEB=""
+for W in \
+  "$APPROOT/web" \
+  "$HOME/Desktop/iIrysFrame/web" \
+  "$HOME/Desktop/iFRAME/apps/iIrysframe/web"; do
+  [ -f "$W/package.json" ] && WEB="$W" && break
+done
+# Use localhost (NOT 127.0.0.1) — Privy allows the localhost origin; 127.0.0.1 is
+# a different origin and the wallet login is rejected there.
+URL="http://localhost:5173"
+LOG="$HOME/Library/Logs/iIrysFrame.log"
+CONF="$HOME/.iirysframe"
+mkdir -p "$HOME/Library/Logs"
+
+# ── janela de app Chromium ────────────────────────────────────────────────────
+# Procura um browser Chromium (Google Chrome primeiro — o mesmo padrão do
+# CLONE FRAME HUB) e abre o iIrys Frame numa janela --app dedicada, com perfil
+# próprio em ~/.iirysframe/chrome: nunca se mistura com o browsing normal nem
+# com o perfil do CLONE FRAME, e os dois apps correm lado a lado sem conflito.
+# Sem Chromium nenhum instalado → browser por omissão, com aviso.
+open_app () {
+  local cand CHROME_APP=""
+  for cand in \
+    "/Applications/Google Chrome.app" \
+    "$HOME/Applications/Google Chrome.app" \
+    "/Applications/Chromium.app" \
+    "$HOME/Applications/Chromium.app" \
+    "/Applications/Brave Browser.app" \
+    "$HOME/Applications/Brave Browser.app" \
+    "/Applications/Microsoft Edge.app" \
+    "$HOME/Applications/Microsoft Edge.app" \
+    "/Applications/Arc.app" \
+    "$HOME/Applications/Arc.app" ; do
+    [ -d "$cand" ] && { CHROME_APP="$cand"; break; }
+  done
+  if [ -n "$CHROME_APP" ]; then
+    # O Privy autentica dentro de um iframe embebido: com cookies de terceiros
+    # bloqueados (o default de um perfil novo) o login entra em loop. Semear o
+    # pref uma vez chega — idempotente, mesmo fix do CLONE FRAME HUB.
+    mkdir -p "$CONF/chrome/Default"
+    if command -v node >/dev/null 2>&1; then
+      node -e 'const f=process.argv[1],fs=require("fs");let j={};try{j=JSON.parse(fs.readFileSync(f,"utf8"))}catch{}j.profile=j.profile||{};if(j.profile.cookie_controls_mode!==0){j.profile.cookie_controls_mode=0;fs.writeFileSync(f,JSON.stringify(j))}' "$CONF/chrome/Default/Preferences" 2>/dev/null || true
+    fi
+    /usr/bin/open -na "$CHROME_APP" --args \
+      --app="$URL" \
+      --user-data-dir="$CONF/chrome" \
+      --no-first-run --no-default-browser-check
+  else
+    osascript -e 'display alert "iIrys Frame" message "Google Chrome não está instalado. A abrir no browser por omissão — instala o Chrome para a experiência de app completa."' >/dev/null 2>&1 || true
+    /usr/bin/open "$URL"
+  fi
+}
+
+if ! command -v npm >/dev/null 2>&1; then
+  osascript -e 'display alert "iIrys Frame" message "Node/npm não encontrado. Instala em https://nodejs.org e tenta de novo."'
+  exit 1
+fi
+
+cd "$WEB" 2>/dev/null || {
+  osascript -e 'display alert "iIrys Frame" message "Pasta web não encontrada. Tentei:\n• a pasta ao lado desta app\n• ~/Desktop/iIrysFrame/web\n• ~/Desktop/iFRAME/apps/iIrysframe/web"'
+  exit 1
+}
+
+# Já está a correr? abre só a janela de app e sai.
+if curl -s --max-time 2 "$URL" >/dev/null 2>&1; then
+  open_app
+  exit 0
+fi
+
+if [ ! -d node_modules ]; then
+  osascript -e 'display notification "A instalar dependências (1-2 min)…" with title "iIrys Frame"'
+  npm install >>"$LOG" 2>&1
+fi
+
+osascript -e 'display notification "A arrancar… abre sozinho numa janela Chrome." with title "iIrys Frame"'
+
+# Abre a janela de app assim que o servidor responder.
+( for _ in $(seq 1 40); do curl -s --max-time 1 "$URL" >/dev/null 2>&1 && { open_app; break; }; sleep 1; done ) &
+
+# Servidor em foreground → a app fica viva no Dock (Sair para parar).
+# Porta fixa em 5173 (strictPort) para alinhar com o URL acima e o Privy.
+exec npm run dev -- --host localhost --port 5173 --strictPort >>"$LOG" 2>&1

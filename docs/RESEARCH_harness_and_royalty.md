@@ -4,7 +4,7 @@
 > pragmatic in-app "iIrys Harness" scaffold generator. **Part 2** designs the
 > Solidity + UX for an opt-in 1–5% developer-support fee (perpetual or first-sale).
 >
-> Repo: `github.com/devclone20/iIrysframe`
+> Repo: `/Users/alexaist1107397/Desktop/HTML/iIrysframe`
 > Stack: React + Vite + TS (`web/`), Foundry + OZ + ERC721A (`contracts/`).
 > Ground truth read: `contracts/src/CloneForge.sol`, `web/src/forge/deploy.ts`,
 > `web/src/components/{Create,CreateSteps,Launch}.tsx`, `web/src/{llm,soul,irys}.ts`,

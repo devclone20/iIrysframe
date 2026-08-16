@@ -19,6 +19,7 @@ import { generateNames, NAME_SETS, SCHEME_INFO, type NamingScheme, type IdFormat
 import { SOUL_PRESETS, SOUL_PRESET_NAMES, SOUL_MODELS, bundlePathFor } from "../soul";
 import { useForge, patchDrop, addDeployed, type TierShare } from "../forge/forgeStore";
 import { deployCloneForge, estimateDeployEth, DEV_WALLET } from "../forge/deploy";
+import { ethers } from "ethers";
 import { useWallet } from "../wallet";
 import { useStore } from "../store";
 import { usdOf, shortAddr } from "../format";
@@ -288,6 +289,12 @@ function StepContract() {
     }
     // Perpetual dev support is additive to the creator royalty; the contract caps
     // the sum at 10%. Guard here so the user never hits an on-chain revert.
+    // An OG gate with a bad address silently deploys UNGATED (toConfigStruct
+    // falls back to the zero address) — the whole point of the gate, lost with
+    // no warning and no way back on an immutable constructor arg.
+    if (drop.ogGated && !ethers.isAddress(drop.ogAddress.trim())) {
+      return toast("OG gate is on but the OG card address is not a valid 0x address — fix it or turn the gate off (it cannot be changed after deploy)", "err");
+    }
     if (drop.devSupportMode === "perpetual" && drop.royaltyBps + drop.devBps > 1000) {
       return toast(`Perpetual: royalty + developer fee must be ≤ 10% (now ${((drop.royaltyBps + drop.devBps) / 100).toFixed(1)}%). Lower one.`, "err");
     }
@@ -473,18 +480,33 @@ function StepContract() {
         <button className="btn btn--ghost btn--mini" onClick={estimateNow} disabled={!w.connected}>Estimate gas{estimate ? ` · ≈ ${estimate} ETH` : ""}</button>
         <a className="btn btn--ghost btn--mini" href="/CloneForge.flat.sol" download>Contract source (.sol)</a>
       </div>
-      {deployed ? (
+      {/* forge.deployed[0] is the most recent contract of ANY past collection —
+          showing only a badge here left the second collection with no way to
+          deploy its own contract. Show the existing one AND keep deploy open. */}
+      {deployed && (
         <div className="keylink" style={{ marginTop: 12 }}>
-          <span className="keylink__label">Contract live on Base</span>
+          <span className="keylink__label">Last contract you deployed</span>
           <code>{deployed.address}</code>
           <div className="keylink__actions">
             <a className="btn btn--mini" href={`${BASE.explorer}/address/${deployed.address}`} target="_blank" rel="noopener noreferrer">Basescan</a>
           </div>
         </div>
-      ) : (
-        <button className="btn btn--primary btn--block" disabled={deploying || !w.connected || !w.onBase} onClick={deploy}>
-          {deploying ? "Deploying…" : !w.connected ? "Connect wallet to deploy" : !w.onBase ? "Switch to Base" : "Pay gas & deploy on Base"}
-        </button>
+      )}
+      <button className="btn btn--primary btn--block" style={{ marginTop: 12 }} disabled={deploying || !w.connected || !w.onBase} onClick={deploy}>
+        {deploying
+          ? "Deploying…"
+          : !w.connected
+            ? "Connect wallet to deploy"
+            : !w.onBase
+              ? `Switch to ${chain.name}`
+              : deployed
+                ? "Deploy another contract for this collection"
+                : "Pay gas & deploy on Base"}
+      </button>
+      {deployed && (
+        <p className="folder-legend" style={{ marginTop: 8 }}>
+          A drop mint numbers tokens from 1, so each collection wants its own contract — reuse this one only if it has never minted.
+        </p>
       )}
     </StepShell>
   );

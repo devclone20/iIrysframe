@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from "react";
+import type { RootState } from "@react-three/fiber";
 import { StepShell } from "./Create";
 import { Engine } from "./Engine";
 import { Viewer3D } from "../three3d/Viewer3D";
-import { loadModelFile, exportGLB, validateGLB, isSupported, type LoadedModel } from "../three3d/load";
+import { loadModelFile, exportGLB, validateGLB, isSupported, detectBakedBackdrop, type LoadedModel } from "../three3d/load";
 import { optimizeGLB, fmtBytes } from "../three3d/optimize";
 import { buildMetadata, metadataToBytes, type Attribute } from "../metadata";
 import { buildAiSoul, bundlePathFor, loadSoulBundles, MONOREPO_NOTE, type MonorepoRef, type SoulConfig } from "../soul";
@@ -13,6 +14,7 @@ import {
   addFiles,
   adoptGenerated,
   patchItem,
+  assignSouls,
   removeItem,
   clearItems,
   getWizard,
@@ -38,8 +40,154 @@ const BG_OPTIONS = [
   { name: "Sky", color: "#DCE8F6" },
   { name: "Lavender", color: "#E8E1F4" },
   { name: "Sand", color: "#ECE3D4" },
-  { name: "Studio", color: null as string | null },
 ];
+
+/* ── per-item backgrounds ─────────────────────────────────────────────────────
+ * One colour for the whole drop was the launch mistake this exists to prevent:
+ * every card on the collection page read identical. "auto" hands each NFT its
+ * own soft milky pastel, deterministically (same seed → same colours), spread
+ * around the hue wheel by the golden angle so neighbours never match. */
+
+const HUE_NAMES: [number, string][] = [
+  [14, "Rose"], [40, "Peach"], [62, "Butter"], [95, "Lime"], [130, "Sage"],
+  [165, "Mint"], [190, "Aqua"], [215, "Sky"], [245, "Periwinkle"],
+  [278, "Lavender"], [308, "Lilac"], [338, "Orchid"], [361, "Rose"],
+];
+
+function hueName(h: number): string {
+  const hue = ((h % 360) + 360) % 360;
+  for (const [t, n] of HUE_NAMES) if (hue <= t) return n;
+  return "Rose";
+}
+
+function hslHex(h: number, s: number, l: number): string {
+  const a = (s / 100) * Math.min(l / 100, 1 - l / 100);
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const c = l / 100 - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(255 * c).toString(16).padStart(2, "0");
+  };
+  return `#${f(0)}${f(8)}${f(4)}`.toUpperCase();
+}
+
+/** Deterministic milky pastel for item i — near-milk lightness, gentle chroma. */
+function pastelFor(seed: number, i: number): { hex: string; name: string } {
+  let s = (seed + i * 0x9e3779b9) >>> 0;
+  const rand = () => {
+    s |= 0;
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const hue = (seed * 137.508 + i * 137.508 + rand() * 24) % 360;
+  const sat = 34 + rand() * 18;              // soft, never neon
+  const light = 81 + rand() * 7;             // "quase leite"
+  return { hex: hslHex(hue, sat, light), name: `Milk ${hueName(hue)}` };
+}
+
+function hexHueName(hex: string): string {
+  const r = parseInt(hex.slice(0, 2), 16) / 255;
+  const g = parseInt(hex.slice(2, 4), 16) / 255;
+  const b = parseInt(hex.slice(4, 6), 16) / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  if (d < 0.04) return mx < 0.35 ? "Graphite" : mx < 0.7 ? "Slate" : "Bone";
+  let h = 0;
+  if (mx === r) h = ((g - b) / d) % 6;
+  else if (mx === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  return hueName(h * 60);
+}
+
+/** The item's real background: baked (from the file) beats every setting;
+ * otherwise the wizard's mode decides. Returned hex includes the leading #. */
+function resolveItemBg(
+  it: WizItem,
+  mode: "auto" | "fixed" | "none",
+  fixed: { name: string; color: string | null },
+  seed: number,
+  index: number,
+): { hex: string | null; name: string } {
+  if (it.hasOwnBg && it.bakedRim) {
+    return { hex: `#${it.bakedRim.toUpperCase()}`, name: hexHueName(it.bakedHex ?? it.bakedRim) };
+  }
+  if (mode === "auto") return pastelFor(seed >>> 0 || 1, index);
+  if (mode === "fixed" && fixed.color) return { hex: fixed.color, name: fixed.name };
+  return { hex: null, name: "Studio" };
+}
+
+/** Filename without directory or extension — the key that pairs a model with a
+ * poster dropped beside it. */
+function stemOf(name: string): string {
+  return name.replace(/\.[^.]+$/, "").toLowerCase();
+}
+
+/** The name the poster takes inside the Irys path-manifest. OpenSea classifies
+ * media by URL extension, so the path has to tell the truth about the bytes —
+ * a supplied still is usually a JPEG, a captured one is always a PNG. */
+export function posterPathFor(poster?: Blob | null): string {
+  const t = poster?.type ?? "";
+  if (t === "image/jpeg" || t === "image/jpg") return "poster.jpg";
+  if (t === "image/webp") return "poster.webp";
+  return "poster.png";
+}
+
+/** Posters dropped before (or after) their models wait here until they match.
+ * Module scope, because a drop can arrive in any order and across renders. */
+const pendingPosters = new Map<string, File>();
+
+/** Attach every pending image to the model that shares its filename. The
+ * viewer's own capture is only ever as big as the window; a supplied still keeps
+ * its full resolution, which is what OpenSea's 3000px recommendation needs. */
+async function attachPendingPosters() {
+  for (const it of getWizard().items) {
+    if (it.posterProvided) continue;
+    const f = pendingPosters.get(stemOf(it.sourceName));
+    if (!f) continue;
+    pendingPosters.delete(stemOf(it.sourceName));
+    let dims: { w: number; h: number } | undefined;
+    try {
+      const bmp = await createImageBitmap(f);
+      dims = { w: bmp.width, h: bmp.height };
+      bmp.close();
+    } catch {
+      /* dimensions are a nicety, not a requirement */
+    }
+    patchItem(it.id, {
+      poster: f,
+      posterUrl: URL.createObjectURL(f),
+      posterProvided: true,
+      posterDims: dims,
+    });
+  }
+}
+
+/** Read the baked backdrop of every queued GLB.
+ *
+ * The backdrop lives in the JSON chunk at the head of the file, so only the head
+ * is read — dropping 1111 models used to fire 1111 full-file reads at once
+ * (~20 GB in flight) and could take the tab down before anything was processed.
+ * A small queue keeps it to a few slices at a time. */
+async function detectBackdrops(headBytes = 512 * 1024, lanes = 6) {
+  const todo = getWizard().items.filter(
+    (i) => i.status === "queued" && i.hasOwnBg == null && i.file && /\.glb$/i.test(i.sourceName),
+  );
+  let next = 0;
+  const worker = async () => {
+    for (;;) {
+      const it = todo[next++];
+      if (!it || !it.file) return;
+      try {
+        const head = await it.file.slice(0, headBytes).arrayBuffer();
+        const baked = detectBakedBackdrop(head);
+        patchItem(it.id, baked ? { hasOwnBg: true, bakedHex: baked.hex, bakedRim: baked.rim } : { hasOwnBg: false });
+      } catch {
+        patchItem(it.id, { hasOwnBg: false });
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(lanes, todo.length) }, worker));
+}
 
 /* ── 4 · Assets ────────────────────────────────────────────────────────────── */
 export function StepUpload() {
@@ -48,10 +196,28 @@ export function StepUpload() {
   const is3d = wiz.kind === "3d";
   const isLayers = wiz.scope === "layers";
   const single = wiz.scope === "single";
-  const accept = is3d ? ".fbx,.glb,.gltf,.obj" : "image/*";
+  const accept = is3d ? ".fbx,.glb,.gltf,.obj,image/*" : "image/*";
   const [over, setOver] = useState(false);
 
   function onFiles(files: File[]) {
+    // In 3D, an image is not an item — it is the poster for the model of the same
+    // name. Drop models and stills together and they pair themselves up.
+    if (is3d) {
+      const imgs = files.filter((f) => f.type.startsWith("image/"));
+      if (imgs.length) {
+        for (const f of imgs) pendingPosters.set(stemOf(f.name), f);
+        void attachPendingPosters();
+      }
+      files = files.filter((f) => !f.type.startsWith("image/"));
+      if (!files.length) {
+        return toast(
+          imgs.length
+            ? `${imgs.length} poster${imgs.length === 1 ? "" : "s"} paired by filename`
+            : "Use FBX, GLB, GLTF or OBJ",
+          imgs.length ? "ok" : "err",
+        );
+      }
+    }
     const good = is3d ? files.filter((f) => isSupported(f.name)) : files.filter((f) => f.type.startsWith("image/"));
     if (good.length === 0) return toast(is3d ? "Use FBX, GLB, GLTF or OBJ" : "Use image files", "err");
     const take = single ? good.slice(0, 1) : good;
@@ -62,6 +228,12 @@ export function StepUpload() {
       for (const it of getWizard().items.filter((i) => !i.poster && i.file)) {
         patchItem(it.id, { poster: it.file!, posterUrl: URL.createObjectURL(it.file!), status: "ready" });
       }
+    }
+    // GLBs may carry their own baked backdrop (iCLONE dome) — detect on drop so
+    // the app never paints a second background over one the art already has.
+    if (is3d) {
+      void detectBackdrops();
+      void attachPendingPosters();          // models may have arrived after their stills
     }
   }
 
@@ -135,7 +307,13 @@ export function StepUpload() {
               {b.posterUrl ? <img className="batch__thumb" src={b.posterUrl} alt="" /> : <span className="batch__thumb" />}
               <div className="batch__meta">
                 <span className="batch__name">{b.name}</span>
-                <span className="batch__sub">{fmtBytes(b.size)}</span>
+                <span className="batch__sub">
+                  {fmtBytes(b.size)}
+                  {b.hasOwnBg ? " · own background ✓" : ""}
+                  {b.posterProvided
+                    ? ` · poster ${b.posterDims ? `${b.posterDims.w}×${b.posterDims.h}` : "supplied"} ✓`
+                    : ""}
+                </span>
               </div>
               <button className="variant__x" onClick={() => removeItem(b.id)} title="Remove">✕</button>
             </div>
@@ -153,9 +331,22 @@ export function StepProcess() {
   const is3d = wiz.kind === "3d";
   const [busy, setBusy] = useState(false);
   const [stepTxt, setStepTxt] = useState("");
-  const [current, setCurrent] = useState<{ model: LoadedModel; key: string } | null>(null);
+  const [current, setCurrent] = useState<{ model: LoadedModel; key: string; color: string | null } | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const r3fRef = useRef<RootState | null>(null);
   const bg = wiz.background;
+  const mode = wiz.bgMode;
+
+  /** A background change invalidates every captured poster (the colour is baked
+   * into the pixels) — re-queue what was ready so nothing seals stale. */
+  function requeuePosters() {
+    for (const it of getWizard().items) {
+      // a supplied poster carries its own background: no setting can stale it
+      if (it.status === "ready" && !it.hasOwnBg && !it.posterProvided) {
+        patchItem(it.id, { status: "queued" });
+      }
+    }
+  }
 
   const pending = wiz.items.filter((i) => i.status === "queued" || i.status === "error").length;
 
@@ -180,6 +371,17 @@ export function StepProcess() {
   async function capturePoster(): Promise<Blob | null> {
     const el = canvasRef.current;
     if (!el) return null;
+    // Draw a fresh frame RIGHT NOW. The render loop only runs while the window
+    // is visible — capturing without this yields a black poster whenever the
+    // app is occluded or backgrounded during a long batch.
+    const st = r3fRef.current;
+    if (st) {
+      try {
+        st.gl.render(st.scene, st.camera);
+      } catch {
+        /* fall back to whatever the loop last painted */
+      }
+    }
     // center-crop to a perfect square — marketplace cards are square, and a
     // letterboxed poster reads as "squashed" on OpenSea
     const side = Math.min(el.width, el.height);
@@ -202,54 +404,102 @@ export function StepProcess() {
           }
         }
       } else {
+        const seed = (wiz.naming.seed >>> 0) || 1;
         for (const it of getWizard().items) {
           if (it.status === "ready" || it.status === "sealed" || !it.file) continue;
+          const index = getWizard().items.findIndex((x) => x.id === it.id);
           patchItem(it.id, { status: "processing", error: undefined });
           try {
+            // this item's OWN colour — baked rim from the file, or its assigned
+            // pastel; painted into the viewer so the poster captures it
+            const resolved = resolveItemBg(it, mode, wiz.background, seed, index);
+            patchItem(it.id, { bgHex: resolved.hex, bgName: resolved.name });
             setStepTxt(`Loading ${it.name}…`);
             const loaded = await loadModelFile(it.file);
-            setCurrent({ model: loaded, key: uid() });
-            await new Promise((r) => setTimeout(r, 1600)); // FitCamera + async textures
-            setStepTxt(`Poster ${it.name}…`);
-            const poster = await capturePoster();
-            setStepTxt(`Optimizing ${it.name}…`);
-            const raw = await exportGLB(loaded.object, loaded.animations);
-            let glb = raw;
-            let before = raw.byteLength;
-            let after = raw.byteLength;
-            try {
-              // meshCompression OFF: OpenSea's viewer has no meshopt decoder (white pane)
-              const res = await optimizeGLB(raw, { maxTexture: 2048, quality: 0.85, meshCompression: false });
-              const v = await validateGLB(res.bytes);
-              if (v.ok) {
-                glb = res.bytes;
-                before = res.before;
-                after = res.after;
+            // A supplied poster needs no viewer at all: skip the canvas boot and
+            // the settle wait, which is most of the per-item time on a big drop.
+            let poster: Blob | null = it.posterProvided ? (it.poster ?? null) : null;
+            if (!poster) {
+              canvasRef.current = null;       // stale canvas = previous item's frame
+              r3fRef.current = null;
+              setCurrent({ model: loaded, key: uid(), color: resolved.hex });
+              // The GL canvas only boots once the window actually lays out — wait
+              // for it (not a fixed delay), or an occluded window skips posters.
+              const tCanvas = Date.now();
+              while (!canvasRef.current && Date.now() - tCanvas < 10_000) {
+                await new Promise((r) => setTimeout(r, 100));
               }
-              // Recenter the bbox to origin so OpenSea / model-viewer auto-frame
-              // the figure dead-center in the pane (no off-center on the detail
-              // view). No-op for already-centered models.
+              await new Promise((r) => setTimeout(r, 1600)); // FitCamera + async textures
+              setStepTxt(`Poster ${it.name}…`);
+              poster = await capturePoster();
+            }
+            let glb: Uint8Array;
+            let before: number;
+            let after: number;
+            if (it.hasOwnBg && /\.glb$/i.test(it.sourceName)) {
+              // The file already carries its finished backdrop (and, for iCLONE,
+              // hand-fixed skinning). Seal the ORIGINAL bytes untouched — any
+              // re-export or texture downscale would only degrade finished art.
+              setStepTxt(`Validating ${it.name}…`);
+              glb = new Uint8Array(await it.file.arrayBuffer());
+              before = after = glb.byteLength;
+              const v = await validateGLB(glb);
+              if (!v.ok) throw new Error(v.error || "GLB failed validation");
+            } else {
+              setStepTxt(`Optimizing ${it.name}…`);
+              const raw = await exportGLB(loaded.object, loaded.animations);
+              glb = raw;
+              before = raw.byteLength;
+              after = raw.byteLength;
               try {
-                const { recenterGLB } = await import("../three3d/optimize");
-                const rc = await recenterGLB(glb);
-                const rv = await validateGLB(rc.bytes);
-                if (rv.ok) {
-                  glb = rc.bytes;
-                  after = rc.bytes.byteLength;
+                // meshCompression OFF: OpenSea's viewer has no meshopt decoder (white pane)
+                const res = await optimizeGLB(raw, { maxTexture: 2048, quality: 0.85, meshCompression: false });
+                const v = await validateGLB(res.bytes);
+                if (v.ok) {
+                  glb = res.bytes;
+                  before = res.before;
+                  after = res.after;
+                }
+                // Recenter the bbox to origin so OpenSea / model-viewer auto-frame
+                // the figure dead-center in the pane (no off-center on the detail
+                // view). No-op for already-centered models.
+                try {
+                  const { recenterGLB } = await import("../three3d/optimize");
+                  const rc = await recenterGLB(glb);
+                  const rv = await validateGLB(rc.bytes);
+                  if (rv.ok) {
+                    glb = rc.bytes;
+                    after = rc.bytes.byteLength;
+                  }
+                } catch {
+                  /* keep the optimized (uncentered) glb */
                 }
               } catch {
-                /* keep the optimized (uncentered) glb */
+                /* keep raw */
               }
-            } catch {
-              /* keep raw */
+            }
+            // No poster = an NFT whose marketplace card is blank. The capture
+            // returns null whenever the window was occluded or the step left
+            // mid-batch; marking that "ready" seals the emptiness permanently.
+            if (!poster) {
+              patchItem(it.id, {
+                status: "error",
+                glb,
+                before,
+                after,
+                tris: loaded.stats.triangles,
+                clips: loaded.animations.length,
+                error: "No poster captured — keep this window in front while processing, or drop a still named like the model.",
+              });
+              continue;
             }
             patchItem(it.id, {
               status: "ready",
               glb,
               before,
               after,
-              poster: poster ?? undefined,
-              posterUrl: poster ? URL.createObjectURL(poster) : undefined,
+              poster,
+              posterUrl: URL.createObjectURL(poster),
               tris: loaded.stats.triangles,
               clips: loaded.animations.length,
             });
@@ -273,13 +523,13 @@ export function StepProcess() {
       title={is3d ? "Optimize & posters" : "Prepare the collection"}
       lead={
         is3d
-          ? "Each model is compressed (meshopt + WebP, ~90% smaller, animation intact) and gets a poster captured from the viewer — the image OpenSea shows."
+          ? "Each model is compressed (meshopt + WebP, ~90% smaller, animation intact) and gets a poster — the image OpenSea shows. A still dropped beside the model (same filename) is used as-is, at its own resolution; otherwise it is captured from the viewer."
           : "Your images are the art itself — this step distributes rarity tiers and locks the set."
       }
       canNext={wiz.items.length > 0 && wiz.items.every((i) => i.status === "ready" || i.status === "sealed")}
     >
       {is3d && (
-        <div className="wizard__stage" style={current && bg.color ? { background: bg.color } : undefined}>
+        <div className="wizard__stage" style={current?.color ? { background: current.color } : undefined}>
           {current ? (
             <Viewer3D
               key={current.key}
@@ -287,8 +537,10 @@ export function StepProcess() {
               animations={current.model.animations}
               animIndex={0}
               autoRotate={current.model.animations.length === 0}
-              background={bg.color}
+              background={current.color}
+              margin={1.18}
               onCanvas={(el) => (canvasRef.current = el)}
+              onReady={(s) => (r3fRef.current = s)}
             />
           ) : (
             <div className="wizard__stage-empty">The processor shows each model here while it works</div>
@@ -297,19 +549,52 @@ export function StepProcess() {
       )}
       {is3d && (
         <div className="e3d__bgbar" style={{ marginTop: 10 }}>
-          <span className="e3d__bglabel">Poster background</span>
-          <div className="e3d__swatches">
-            {BG_OPTIONS.map((o) => (
+          <span className="e3d__bglabel">Backgrounds</span>
+          <div className="wizbg__modes">
+            {([
+              ["auto", "Per-NFT auto"],
+              ["fixed", "One colour"],
+              ["none", "Studio"],
+            ] as const).map(([m, label]) => (
               <button
-                key={o.name}
-                className={`e3d__swatch ${bg.name === o.name ? "is-on" : ""} ${o.color ? "" : "e3d__swatch--studio"}`}
-                style={o.color ? { background: o.color } : undefined}
-                title={o.name}
-                onClick={() => patchWizard({ background: o })}
-              />
+                key={m}
+                className={`btn btn--mini ${mode === m ? "btn--primary" : "btn--ghost"}`}
+                onClick={() => {
+                  if (mode !== m) {
+                    patchWizard({ bgMode: m });
+                    requeuePosters();
+                  }
+                }}
+              >
+                {label}
+              </button>
             ))}
           </div>
-          <span className="e3d__bgname">{bg.name}</span>
+          {mode === "fixed" && (
+            <div className="e3d__swatches">
+              {BG_OPTIONS.map((o) => (
+                <button
+                  key={o.name}
+                  className={`e3d__swatch ${bg.name === o.name ? "is-on" : ""}`}
+                  style={{ background: o.color }}
+                  title={o.name}
+                  onClick={() => {
+                    patchWizard({ background: o });
+                    requeuePosters();
+                  }}
+                />
+              ))}
+            </div>
+          )}
+          <span className="e3d__bgname">
+            {mode === "auto"
+              ? "a soft milky colour of its own per NFT"
+              : mode === "fixed"
+                ? bg.name
+                : "no background"}
+            {wiz.items.some((i) => i.hasOwnBg) &&
+              ` · ${wiz.items.filter((i) => i.hasOwnBg).length} with own background (kept as-is)`}
+          </span>
         </div>
       )}
 
@@ -331,6 +616,16 @@ export function StepProcess() {
               {b.clips != null && ` · ${b.clips} clip${b.clips === 1 ? "" : "s"}`}
               {b.error && ` · ${b.error}`}
             </span>
+            {is3d && (
+              <button
+                className={`wizitem__bg ${b.hasOwnBg ? "is-own" : ""}`}
+                title={b.hasOwnBg ? "This file carries its own background — click if it should get one added instead" : "Click if this file already has its own background"}
+                onClick={() => patchItem(b.id, { hasOwnBg: !b.hasOwnBg, status: b.status === "ready" ? "queued" : b.status })}
+              >
+                {b.bgHex && <i style={{ background: b.bgHex }} />}
+                {b.hasOwnBg ? "own bg" : b.bgName || "bg: auto"}
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -404,6 +699,11 @@ export function StepSeal({ goLaunch }: { goLaunch: () => void }) {
 
   async function sealAll() {
     if (ready.length === 0) return toast("Nothing ready to seal", "err");
+    // Items dropped AFTER the Souls step never went through its assignment, and
+    // an unassigned item seals with no soul at all — silently, and forever.
+    if (wiz.soulsOn && wiz.souls.length > 0 && getWizard().items.some((i) => !i.soulId)) {
+      assignSouls();
+    }
     if (!w.connected) return toast("Connect your wallet first", "err");
     if (!w.onBase) return toast("Switch to Base first", "err");
     if (!store.irys) return toast("Wallet not ready — try again in a moment", "err");
@@ -456,7 +756,14 @@ export function StepSeal({ goLaunch }: { goLaunch: () => void }) {
       for (const b of ready) {
         edition += 1;
         patchItem(b.id, { status: "sealing" });
-        const item = uid();
+        // Every Irys upload is paid and permanent the instant it lands. A retry
+        // after a mid-item failure must REUSE what already sealed, or the owner
+        // pays twice for the same bytes — so progress is recorded per step.
+        const prog: NonNullable<WizItem["up"]> = { ...(b.up ?? {}) };
+        const item = prog.item ?? uid();
+        prog.item = item;
+        const saveProg = () => patchItem(b.id, { up: { ...prog } });
+        saveProg();
         const tags = (type: string, tagName: string, extra: Tag[] = []): Tag[] => [
           { name: "App-Name", value: "iIrys Frame" },
           { name: "Item", value: item },
@@ -468,17 +775,23 @@ export function StepSeal({ goLaunch }: { goLaunch: () => void }) {
           ...extra,
         ];
         try {
-          let modelUp: UploadOut | null = null;
-          if (is3d && b.glb) {
+          let modelUp: { id: string; url: string } | null = prog.model ?? null;
+          if (is3d && b.glb && !modelUp) {
             setStepTxt(`Sealing ${b.name} (${edition}/${ready.length}) — glb…`);
-            modelUp = await uploadData(store.irys, b.glb, "model/gltf-binary", tags("model", b.name, [
+            const up = await uploadData(store.irys, b.glb, "model/gltf-binary", tags("model", b.name, [
               { name: "Animated", value: (b.clips ?? 0) > 0 ? "true" : "false" },
             ]));
+            modelUp = { id: up.id, url: up.url };
+            prog.model = modelUp;
+            saveProg();
           }
-          let imageUp: UploadOut | null = null;
-          if (b.poster) {
+          let imageUp: { id: string; url: string } | null = prog.image ?? null;
+          if (b.poster && !imageUp) {
             setStepTxt(`Sealing ${b.name} — image…`);
-            imageUp = await uploadData(store.irys, await blobToBytes(b.poster), b.poster.type || "image/png", tags("final", b.name));
+            const up = await uploadData(store.irys, await blobToBytes(b.poster), b.poster.type || "image/png", tags("final", b.name));
+            imageUp = { id: up.id, url: up.url };
+            prog.image = imageUp;
+            saveProg();
           }
           setStepTxt(`Sealing ${b.name} — metadata…`);
           const attributes: Attribute[] = [
@@ -492,7 +805,9 @@ export function StepSeal({ goLaunch }: { goLaunch: () => void }) {
               : []),
             ...(b.tier ? [{ trait_type: "Tier", value: b.tier }] : []),
           ];
-          if (is3d && wiz.background.color) attributes.push({ trait_type: "Background", value: wiz.background.name });
+          // Background is PER ITEM — the launch lesson: one colour repeated over a
+          // whole collection reads broken on the marketplace grid.
+          if (is3d && b.bgHex && b.bgName) attributes.push({ trait_type: "Background", value: b.bgName });
           const soul = wiz.soulsOn && b.soulId ? soulsById.get(b.soulId) : undefined;
           if (soul) {
             attributes.push({ trait_type: "Soul", value: soul.name || soul.preset });
@@ -509,28 +824,42 @@ export function StepSeal({ goLaunch }: { goLaunch: () => void }) {
           let imgGw: string | undefined;
           let animGw: string | undefined;
           {
-            const paths: Record<string, { id: string }> = {};
-            if (imageUp) paths["poster.png"] = { id: imageUp.id };
-            if (modelUp) paths["model.glb"] = { id: modelUp.id };
-            const manifest = { manifest: "arweave/paths", version: "0.1.0", ...(imageUp ? { index: { path: "poster.png" } } : {}), paths };
-            setStepTxt(`Sealing ${b.name} — media manifest…`);
-            const manUp = await uploadData(store.irys, new TextEncoder().encode(JSON.stringify(manifest)),
-              "application/x.arweave-manifest+json", tags("media-manifest", `${b.name} — media manifest`));
+            // the poster may be a supplied JPEG rather than a captured PNG —
+            // the manifest path's extension must tell the truth about the bytes
+            const posterName = posterPathFor(b.poster);
+            let manId = prog.manifest?.id;
+            if (!manId) {
+              const paths: Record<string, { id: string }> = {};
+              if (imageUp) paths[posterName] = { id: imageUp.id };
+              if (modelUp) paths["model.glb"] = { id: modelUp.id };
+              const manifest = { manifest: "arweave/paths", version: "0.1.0", ...(imageUp ? { index: { path: posterName } } : {}), paths };
+              setStepTxt(`Sealing ${b.name} — media manifest…`);
+              const manUp = await uploadData(store.irys, new TextEncoder().encode(JSON.stringify(manifest)),
+                "application/x.arweave-manifest+json", tags("media-manifest", `${b.name} — media manifest`));
+              manId = manUp.id;
+              prog.manifest = { id: manId };
+              saveProg();
+            }
             if (imageUp) {
-              imgGw = `${GATEWAY}/${manUp.id}/poster.png`;
-              imgFinal = await resolveWithRetry(imgGw);
+              imgGw = `${GATEWAY}/${manId}/${posterName}`;
+              imgFinal = prog.imgFinal ?? (await resolveWithRetry(imgGw));
+              prog.imgGw = imgGw;
+              prog.imgFinal = imgFinal;
             }
             if (modelUp) {
-              animGw = `${GATEWAY}/${manUp.id}/model.glb`;
-              animFinal = await resolveWithRetry(animGw);
+              animGw = `${GATEWAY}/${manId}/model.glb`;
+              animFinal = prog.animFinal ?? (await resolveWithRetry(animGw));
+              prog.animGw = animGw;
+              prog.animFinal = animFinal;
             }
+            saveProg();
           }
           const meta = buildMetadata({
             name: b.name,
             description: wiz.description,
             image: imgFinal || animFinal || "",
             animation_url: animFinal,
-            background_color: is3d ? (wiz.background.color ?? undefined) : undefined,
+            background_color: is3d ? (b.bgHex ?? undefined) : undefined,
             attributes,
             ai_soul: soul
               ? (buildAiSoul(
@@ -554,12 +883,32 @@ export function StepSeal({ goLaunch }: { goLaunch: () => void }) {
         }
       }
 
-      if (metadataIds.length > 0) {
-        setStepTxt("Sealing drop manifest…");
-        const man = await sealDropManifest(store.irys, metadataIds, collection || "collection");
-        setDropManifestUri(man.baseURI);
-        patchWizard({ sealBaseURI: man.baseURI, sealedAt: Date.now() });
-        toast(`Sealed ${metadataIds.length} items — collection is permanent`, "ok");
+      // The drop manifest maps tokenId → metadata BY POSITION, so it must list
+      // every sealed item in item order — including ones sealed in an earlier
+      // run. Building it from this run alone renumbered the whole collection and
+      // pointed token #1 at whatever happened to be sealed last.
+      const allSealed = getWizard().items.filter((i) => i.status === "sealed" && i.sealed?.metadataId);
+      const stillNot = getWizard().items.filter((i) => i.status !== "sealed");
+      if (allSealed.length > 0) {
+        let go = true;
+        if (stillNot.length > 0) {
+          go = await confirmDialog(
+            "Seal the drop manifest?",
+            `<strong>${allSealed.length}</strong> item${allSealed.length === 1 ? " is" : "s are"} sealed, but <strong>${stillNot.length}</strong> did not seal. The manifest numbers tokens 1…${allSealed.length} over the sealed items only — the rest would need a new manifest later. Seal it anyway?`,
+            "Seal manifest",
+          );
+        }
+        if (go) {
+          setStepTxt("Sealing drop manifest…");
+          const man = await sealDropManifest(
+            store.irys,
+            allSealed.map((i) => i.sealed!.metadataId),
+            collection || "collection",
+          );
+          setDropManifestUri(man.baseURI);
+          patchWizard({ sealBaseURI: man.baseURI, sealedAt: Date.now() });
+          toast(`Sealed ${metadataIds.length} items — ${allSealed.length} in the manifest`, "ok");
+        }
       }
       await store.refresh();
       await store.loadInventory();

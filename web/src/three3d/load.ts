@@ -40,6 +40,46 @@ export interface LoadedModel {
 const SUPPORTED = ["fbx", "glb", "gltf", "obj"] as const;
 export type SupportedExt = (typeof SUPPORTED)[number];
 
+/** A backdrop baked INTO the model (iCLONE pipeline: an inward-facing unlit dome
+ * around the figure). Carried in the file so the colour survives any viewer. */
+export interface BakedBackdrop {
+  /** Field colour at the centre of the dome (6-hex, no #). */
+  hex: string;
+  /** Colour at the dome's rim — what page/viewer corners should be. */
+  rim: string;
+}
+
+/** True for the dome mesh/node of a baked backdrop (never part of the figure). */
+export function isBackdropNode(name: string | undefined | null): boolean {
+  return !!name && name.indexOf("Backdrop") >= 0;
+}
+
+/**
+ * Detect a baked backdrop by reading the GLB's JSON chunk directly — no three.js
+ * parse needed, so Upload can badge files the moment they are dropped.
+ */
+export function detectBakedBackdrop(buf: ArrayBuffer): BakedBackdrop | null {
+  try {
+    const dv = new DataView(buf);
+    if (buf.byteLength < 20 || dv.getUint32(0, true) !== 0x46546c67) return null;
+    const jlen = dv.getUint32(12, true);
+    if (dv.getUint32(16, true) !== 0x4e4f534a) return null;
+    const js = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 20, jlen)));
+    const nodes: { name?: string; extras?: Record<string, unknown> }[] = js.nodes ?? [];
+    for (const n of nodes) {
+      const ex = n.extras;
+      if (!ex || !isBackdropNode(n.name)) continue;
+      const hex = typeof ex.hex === "string" && /^[0-9a-f]{6}$/i.test(ex.hex) ? ex.hex : null;
+      if (!hex) continue;
+      const rim = typeof ex.rim_hex === "string" && /^[0-9a-f]{6}$/i.test(ex.rim_hex) ? ex.rim_hex : hex;
+      return { hex, rim };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function extOf(name: string): string {
   const i = name.lastIndexOf(".");
   return i < 0 ? "" : name.slice(i + 1).toLowerCase();
@@ -112,15 +152,28 @@ export function makeInPlace(clips: THREE.AnimationClip[]): THREE.AnimationClip[]
   return clips;
 }
 
+/** Bounding box of the FIGURE only — a baked backdrop dome would otherwise win
+ * every measurement and the character ends up tiny, floating, or cut. */
+function figureBox(object: THREE.Object3D): THREE.Box3 {
+  const box = new THREE.Box3();
+  object.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh || isBackdropNode(mesh.name) || isBackdropNode(mesh.parent?.name)) return;
+    box.expandByObject(mesh);
+  });
+  if (box.isEmpty()) box.setFromObject(object);
+  return box;
+}
+
 /** Center on X/Z, drop feet to y=0, scale to a consistent height, enable shadows. */
 export function normalizeObject(object: THREE.Object3D, targetHeight = 2.4): void {
   object.updateWorldMatrix(true, true);
-  const size = new THREE.Box3().setFromObject(object).getSize(new THREE.Vector3());
+  const size = figureBox(object).getSize(new THREE.Vector3());
   const s = targetHeight / (size.y || 1);
   object.scale.multiplyScalar(s);
 
   object.updateWorldMatrix(true, true);
-  const box = new THREE.Box3().setFromObject(object);
+  const box = figureBox(object);
   const c = box.getCenter(new THREE.Vector3());
   object.position.x -= c.x;
   object.position.z -= c.z;
@@ -129,6 +182,13 @@ export function normalizeObject(object: THREE.Object3D, targetHeight = 2.4): voi
   object.traverse((o) => {
     const mesh = o as THREE.Mesh;
     if (!mesh.isMesh) return;
+    if (isBackdropNode(mesh.name) || isBackdropNode(mesh.parent?.name)) {
+      // the dome is unlit by design — converting it to a lit material would
+      // shade the field and shift its colour; leave it exactly as authored
+      mesh.castShadow = false;
+      mesh.frustumCulled = false;
+      return;
+    }
     mesh.castShadow = true;
     mesh.frustumCulled = false;
     const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];

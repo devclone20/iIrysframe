@@ -113,6 +113,16 @@ export function Launch({ goCreate }: { goCreate: () => void }) {
     if (!provider) return toast("Wallet provider unavailable", "err");
 
     if (canDropMint) {
+      // mintDrop numbers tokens sequentially from whatever is already minted, but
+      // the manifest numbers metadata from 1 — so minting a drop on a contract
+      // that already has tokens shifts every tokenURI by that offset.
+      const already = state?.totalMinted != null ? Number(state.totalMinted) : 0;
+      if (already > 0) {
+        return toast(
+          `This contract already has ${already} minted token${already === 1 ? "" : "s"} — a drop mint would number this collection from #${already + 1} while the manifest numbers it from #1, so every item would show the wrong art. Deploy a fresh contract for this collection.`,
+          "err",
+        );
+      }
       const ok = await confirmDialog(
         "Mint the whole collection",
         `Mint <strong>all ${sealed.length} items</strong> in <strong>one transaction</strong> (sequential ids from your sealed manifest) to your wallet. You pay one gas fee. OpenSea indexes them minutes later.`,

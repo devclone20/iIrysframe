@@ -302,6 +302,15 @@ export function requiresMeshopt(bytes: Uint8Array): boolean {
 
 /** Center-crop an image to a perfect square (marketplace card friendly).
  *  Returns null when the image is already square. */
+/** Name the manifest path after the bytes it actually points at. Posters may be
+ * PNG (captured), JPEG (supplied by the artist) or WebP — calling every one of
+ * them "poster.png" makes the URL lie, and OpenSea classifies media by URL. */
+function posterPathFrom(url: string): string {
+  const m = /\/poster\.(png|jpe?g|webp)(\?|$)/.exec(url) ?? /\.(png|jpe?g|webp)(\?|$)/i.exec(url);
+  const ext = (m?.[1] ?? "png").toLowerCase();
+  return `poster.${ext === "jpeg" ? "jpg" : ext}`;
+}
+
 export async function squareCrop(blob: Blob): Promise<Blob | null> {
   const bmp = await createImageBitmap(blob);
   const { width: w, height: h } = bmp;
@@ -351,8 +360,11 @@ export async function repairAllTokens(opts: {
       // healthy = the v3 standard: media URLs carrying REAL file extensions.
       // Extensionless "direct" links are repaired too — OpenSea classifies by
       // extension and duplicate mints proved extensionless can fail ingestion.
+      // A poster may legitimately be png, jpg or webp — the repair engine only
+      // cares that the URL carries a REAL extension, not which one. Demanding
+      // .png here condemned every JPEG-postered token as broken and rewrote it.
       const hasExt =
-        /\/poster\.png(\?|$)/.test(String(meta.image ?? "")) &&
+        /\/poster\.(png|jpe?g|webp)(\?|$)/.test(String(meta.image ?? "")) &&
         (!meta.animation_url || /\/model\.glb(\?|$)/.test(String(meta.animation_url)));
 
       // square the poster (marketplace cards are square — letterboxed posters look squashed)
@@ -427,10 +439,11 @@ export async function repairAllTokens(opts: {
       const modelTx = txIdOf(String(repaired.animation_gateway ?? ""));
       if (posterTx || modelTx) {
         onStep(`Naming media of ${name} (extension manifest)…`);
+        const pName = squared ? "poster.png" : posterPathFrom(String(repaired.image_gateway ?? repaired.image ?? ""));
         const paths: Record<string, { id: string }> = {};
-        if (posterTx) paths["poster.png"] = { id: posterTx };
+        if (posterTx) paths[pName] = { id: posterTx };
         if (modelTx) paths["model.glb"] = { id: modelTx };
-        const manifest = { manifest: "arweave/paths", version: "0.1.0", ...(posterTx ? { index: { path: "poster.png" } } : {}), paths };
+        const manifest = { manifest: "arweave/paths", version: "0.1.0", ...(posterTx ? { index: { path: pName } } : {}), paths };
         const manUp = await uploadData(
           irys,
           new TextEncoder().encode(JSON.stringify(manifest)),
@@ -440,7 +453,7 @@ export async function repairAllTokens(opts: {
         const manId = txIdOf(manUp.url);
         if (manId) {
           if (posterTx) {
-            const named = `${GATEWAY}/${manId}/poster.png`;
+            const named = `${GATEWAY}/${manId}/${pName}`;
             const direct = await resolveWithRetry(named);
             repaired.image = direct;
             repaired.image_url = direct;
@@ -538,14 +551,15 @@ export async function repairUnminted(opts: {
   if (posterTx || modelTx) {
     onStep("Naming media (extension manifest)…");
     const paths: Record<string, { id: string }> = {};
-    if (posterTx) paths["poster.png"] = { id: posterTx };
+    const pName = posterPathFrom(String(meta.image_gateway ?? meta.image ?? ""));
+  if (posterTx) paths[pName] = { id: posterTx };
     if (modelTx) paths["model.glb"] = { id: modelTx };
-    const manUp = await uploadData(irys, new TextEncoder().encode(JSON.stringify({ manifest: "arweave/paths", version: "0.1.0", ...(posterTx ? { index: { path: "poster.png" } } : {}), paths })),
+    const manUp = await uploadData(irys, new TextEncoder().encode(JSON.stringify({ manifest: "arweave/paths", version: "0.1.0", ...(posterTx ? { index: { path: pName } } : {}), paths })),
       "application/x.arweave-manifest+json", [...markers, { name: "Type", value: "media-manifest" }, { name: "Name", value: `${name} — media manifest` }]);
     const manId = txIdOf(manUp.url);
     if (manId) {
       if (posterTx) {
-        const named = `${GATEWAY}/${manId}/poster.png`;
+        const named = `${GATEWAY}/${manId}/${pName}`;
         const direct = await resolveWithRetry(named);
         repaired.image = direct;
         repaired.image_url = direct;
@@ -619,16 +633,17 @@ export async function repairWithNewModel(opts: {
   const modelTx = txIdOf(glbUp.url);
   onStep("Naming media (extension manifest)…");
   const paths: Record<string, { id: string }> = {};
-  if (posterTx) paths["poster.png"] = { id: posterTx };
+  const pName = posterPathFrom(String(meta.image_gateway ?? meta.image ?? ""));
+  if (posterTx) paths[pName] = { id: posterTx };
   if (modelTx) paths["model.glb"] = { id: modelTx };
-  const manUp = await uploadData(irys, new TextEncoder().encode(JSON.stringify({ manifest: "arweave/paths", version: "0.1.0", ...(posterTx ? { index: { path: "poster.png" } } : {}), paths })),
+  const manUp = await uploadData(irys, new TextEncoder().encode(JSON.stringify({ manifest: "arweave/paths", version: "0.1.0", ...(posterTx ? { index: { path: pName } } : {}), paths })),
     "application/x.arweave-manifest+json", [...markers, { name: "Type", value: "media-manifest" }, { name: "Name", value: `${name} — media manifest` }]);
   const manId = txIdOf(manUp.url);
   if (!manId) throw new Error("manifest id unavailable");
 
   const repaired: Record<string, unknown> = { ...meta };
   if (posterTx) {
-    const named = `${GATEWAY}/${manId}/poster.png`;
+    const named = `${GATEWAY}/${manId}/${pName}`;
     const direct = await resolveWithRetry(named);
     repaired.image = direct;
     repaired.image_url = direct;
@@ -713,11 +728,12 @@ export async function recenterFraming(opts: {
       const modelTx = txIdOf(glbUp.url);
       onStep(`Naming media of ${name} (extension manifest)…`);
       const paths: Record<string, { id: string }> = {};
-      if (posterTx) paths["poster.png"] = { id: posterTx };
+      const pName = posterPathFrom(String(meta.image_gateway ?? meta.image ?? ""));
+  if (posterTx) paths[pName] = { id: posterTx };
       if (modelTx) paths["model.glb"] = { id: modelTx };
       const manUp = await uploadData(
         irys,
-        new TextEncoder().encode(JSON.stringify({ manifest: "arweave/paths", version: "0.1.0", ...(posterTx ? { index: { path: "poster.png" } } : {}), paths })),
+        new TextEncoder().encode(JSON.stringify({ manifest: "arweave/paths", version: "0.1.0", ...(posterTx ? { index: { path: pName } } : {}), paths })),
         "application/x.arweave-manifest+json",
         [...markers, { name: "Type", value: "media-manifest" }, { name: "Name", value: `${name} — media manifest` }],
       );
@@ -726,7 +742,7 @@ export async function recenterFraming(opts: {
 
       const repaired: Record<string, unknown> = { ...meta };
       if (posterTx) {
-        const named = `${GATEWAY}/${manId}/poster.png`;
+        const named = `${GATEWAY}/${manId}/${pName}`;
         const direct = await resolveWithRetry(named);
         repaired.image = direct;
         repaired.image_url = direct;

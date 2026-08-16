@@ -14,13 +14,9 @@ import {FrameRoyaltySplit} from "./FrameRoyaltySplit.sol";
 
 /// @notice Canonical ERC-6551 registry (same address on every chain, incl. Base).
 interface IERC6551Registry {
-    function createAccount(
-        address implementation,
-        bytes32 salt,
-        uint256 chainId,
-        address tokenContract,
-        uint256 tokenId
-    ) external returns (address);
+    function createAccount(address implementation, bytes32 salt, uint256 chainId, address tokenContract, uint256 tokenId)
+        external
+        returns (address);
 
     function account(address implementation, bytes32 salt, uint256 chainId, address tokenContract, uint256 tokenId)
         external
@@ -276,15 +272,16 @@ contract CloneForge is ERC721A, ERC2981, Ownable2Step, Pausable, ReentrancyGuard
     // ── ERC-6551 token-bound account (the agent's vault wallet) ────────────────
     function tokenAccount(uint256 tokenId) external view returns (address) {
         if (erc6551Registry == address(0)) return address(0);
-        return IERC6551Registry(erc6551Registry)
-            .account(erc6551Implementation, bytes32(0), block.chainid, address(this), tokenId);
+        return
+            IERC6551Registry(erc6551Registry).account(erc6551Implementation, bytes32(0), block.chainid, address(this), tokenId);
     }
 
     function createTokenAccount(uint256 tokenId) external returns (address) {
         if (!_exists(tokenId)) revert NonexistentToken();
         if (erc6551Registry == address(0)) revert ZeroAddress();
-        return IERC6551Registry(erc6551Registry)
-            .createAccount(erc6551Implementation, bytes32(0), block.chainid, address(this), tokenId);
+        return IERC6551Registry(erc6551Registry).createAccount(
+            erc6551Implementation, bytes32(0), block.chainid, address(this), tokenId
+        );
     }
 
     // ── admin ───────────────────────────────────────────────────────────────────
@@ -385,7 +382,6 @@ contract CloneForge is ERC721A, ERC2981, Ownable2Step, Pausable, ReentrancyGuard
 
     function supportsInterface(bytes4 interfaceId) public view override(ERC721A, ERC2981) returns (bool) {
         // 0x49064906 = ERC-4906 (metadata update events)
-        return interfaceId == bytes4(0x49064906) || ERC721A.supportsInterface(interfaceId)
-            || ERC2981.supportsInterface(interfaceId);
+        return interfaceId == bytes4(0x49064906) || ERC721A.supportsInterface(interfaceId) || ERC2981.supportsInterface(interfaceId);
     }
 }
